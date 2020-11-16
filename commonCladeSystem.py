@@ -246,6 +246,7 @@ def addAll(page):
                 print("Added item "+str(counter) + ": " + var)
             else:
                 print("Item " + str(counter) + " already exists: " + var)
+        counter+=1
 
 #Deletes a node from the tree. Nodes with children cannot be deleted, for safety's sake.
 def delNode(node):
@@ -357,44 +358,9 @@ def related(timestamp,target="Sauria"):
         output.append(var['title'])
     return output
 
-def checkAlias(page):
-    try:
-        temps = parse(page).filter_templates()
-    except:
-        return "None"
-    temp = ""
-    for t in temps:
-        if t.has("taxon"):
-            temp = t
-            break;
-    try:
-        if(temp.has("name")):
-            nameData = temp.get("name").split("=")[1].strip()
-            if "<!--" in nameData:
-                nameData = sub(r"<!--.*-->","",nameData).strip()
-            if "''" in nameData:
-                nameData = sub(r"''","",nameData).strip()
-            if '"' in nameData:
-                nameData = sub(r'"',"",nameData).strip()
-            if nameData == page:
-                return "None"
-            else:
-                return nameData
-        else:
-            return "None"
-    except AttributeError:
-        return "None"
+#checkUpdates()
 
-for var in treeDict:
-    if(var != "Life"):
-        try:
-            print(treeDict[var].alias)
-            forceUpdate(var)
-        except:
-            continue
-
-#print(listGenera("Elasmosauridae"))
+#childrenOf("Selachimorpha")
 #print(len(backlinks("Template:Taxonomy/Pseudosuchia",5000)[0]))
-#commonClade("Sauria","Ichthyosauromorpha")
-#print(taxonTree("Rhamphorhynchus","list"))
-#taxonTree("Animalia","print")
+#("Octopoda","Selachimorpha")
+childrenOf("Carcharhinidae")
