@@ -387,6 +387,21 @@ def related(timestamp, target="Sauria"):
     return output
 
 
+def deepestFrom(name,depth=0):
+    node = treeDict[name]
+    deepestNode = name
+    maxDepth = depth
+
+    for var in node.children:
+        testNode, testDepth = deepestFrom(treeDict[var].name,depth+1)
+        if testDepth > maxDepth:
+            maxDepth = testDepth
+            deepestNode = testNode
+
+    return deepestNode,maxDepth
+
+
+# Goes through the default startup routine, importing the tree from the file and setting lastUpdated
 def importTree():
     with open("tree.txt", "rb") as file:
         # treeDict = pickle.load(file)
@@ -396,8 +411,9 @@ def importTree():
 #DO NOT DELETE THIS LINE
 if __name__ == "__main__":
     importTree()
+    checkUpdates()
+    printTaxonTree("Corvus")
 
-# checkUpdates()
 
 # childrenOf("Selachimorpha")
 # print(len(backlinks("Template:Taxonomy/Pseudosuchia",5000)[0]))
