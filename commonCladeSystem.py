@@ -3,6 +3,7 @@ import requests
 import pickle
 import atexit
 import feedparser
+import sys
 from datetime import datetime
 
 # Default values
@@ -41,7 +42,7 @@ class Node:
         return self.name
 
 
-# When the program goes through the tree, if it cannot find a string in the dictionary, it will look here for an alias instead.
+# When the program goes through the tree, if it cannot find a string in the dictionary, it will look here for an alias or common name instead.
 aliases = {
     "Crocodylia": "Crocodilia",
     "Breviguartossa": "Breviquartossa",
@@ -53,6 +54,7 @@ aliases = {
     "Boulengerina": "Naja (Boulengerina)",
     "Cyclorinae": "Cyclocorinae",
 }
+commonNames = {}
 
 # Wikipedia uses latin names for ranks in their templates, so this is needed when anglicising rank names.
 replacements = {
@@ -66,19 +68,24 @@ replacements = {
 
 
 # This puts the data in its correct place for processing
-def loadData(treeTimeTuple):
+def loadData(fileTuple):
     global lastUpdated
     global treeDict
-    lastUpdated = treeTimeTuple[0]
-    treeDict = treeTimeTuple[1]
+    global commonNames
+    lastUpdated = fileTuple[0]
+    treeDict = fileTuple[1]
+    try:
+        commonNames = fileTuple[2]
+    except:
+        pass
 
 
 # This ensures that the tree is saved every time the program closes
 def exitHandler():
     global treeDict
-    treeTimeTuple = (lastUpdated, treeDict)
+    fileTuple = (lastUpdated, treeDict, commonNames)
     with open("tree.txt", "wb") as file:
-        pickle.dump(treeTimeTuple, file, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(fileTuple, file, pickle.HIGHEST_PROTOCOL)
 
 
 atexit.register(exitHandler)
@@ -128,11 +135,36 @@ def cleanPageName(pageName):
     return pageName
 
 
+# Checks if the given string is a common name for a taxon (e.g. Spider for Aranea)
+# Guarantees that the true taxon will be in the tree, if it exists
+def checkCommonName(pageName):
+    page = parse(pageName)
+    temps = page.filter_templates()
+    temp = ""
+    found = False
+    for t in temps:
+        if t.has("taxon"):
+            temp = t
+            found = True
+            break
+    if found:
+        taxonParam = temp.get("taxon")
+        taxon = taxonParam.split("=")[1]
+        cleanTaxon = cleanPageName(taxon)
+        if cleanTaxon not in treeDict:
+            addTaxonTree(cleanTaxon)
+        commonNames[pageName] = cleanTaxon
+    return found
+
+
+# Prints out a taxon tree
 def printTaxonTree(pageName):
     pageName = cleanPageName(pageName)
     if pageName not in treeDict:
         if pageName in aliases:
             pageName = aliases[pageName]
+        elif pageName in commonNames or checkCommonName(pageName):
+            pageName = commonNames[pageName]
         else:
             addTaxonTree(pageName)
             printTaxonTree(pageName)
@@ -150,6 +182,8 @@ def listTaxonTree(pageName):
         return treeDict[pageName].cladeList
     elif pageName in aliases:
         return treeDict[aliases[pageName]].cladeList
+    elif pageName in commonNames or checkCommonName(pageName):
+        return treeDict[commonNames[pageName]].cladeList
     else:
         addTaxonTree(pageName)
         return listTaxonTree(pageName)
@@ -158,11 +192,15 @@ def listTaxonTree(pageName):
 # Adds a new taxon tree to the dictionary
 def addTaxonTree(pageName):
     pageName = cleanPageName(pageName)
-    parent = getTaxonData(pageName, "parent")
-    rank = cleanRank(getTaxonData(pageName, "rank"))
-    result = [pageName] + listTaxonTree(parent)
-    treeDict[pageName] = Node(pageName, result, rank)
-    registerChild(pageName)
+    try:
+        parent = getTaxonData(pageName, "parent")
+        rank = cleanRank(getTaxonData(pageName, "rank"))
+        result = [pageName] + listTaxonTree(parent)
+        treeDict[pageName] = Node(pageName, result, rank)
+        registerChild(pageName)
+    except KeyError:
+        print(pageName + " is not a valid taxon or common name.")
+        sys.exit()
 
 
 # Removes dumb characters from the rank, then anglicises it
@@ -405,14 +443,16 @@ def deepestFrom(name,depth=0):
 def importTree():
     with open("tree.txt", "rb") as file:
         # treeDict = pickle.load(file)
-        treeTimeTuple = pickle.load(file)
-        loadData(treeTimeTuple)
+        fileTuple = pickle.load(file)
+        loadData(fileTuple)
 
-#DO NOT DELETE THIS LINE
+#DO NOT DELETE THIS CODE
 if __name__ == "__main__":
     importTree()
     checkUpdates()
-    printTaxonTree("Corvus")
+
+    #Put actual commands below here
+    commonClade("Beaver","Hare")
 
 
 # childrenOf("Selachimorpha")
