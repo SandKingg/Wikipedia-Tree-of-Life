@@ -18,6 +18,7 @@ class Node:
         self.name = name
         self.cladeList = list
         self.rank = rank
+        self.commonName = ""
         try:
             self.parent = list[1]
         except:
@@ -33,6 +34,9 @@ class Node:
 
     def addRank(self, rank):
         self.rank = rank
+
+    def setCommonName(self, commonName):
+        self.commonName = commonName
 
     # Overridden methods
     def __str__(self):
@@ -138,22 +142,39 @@ def cleanPageName(pageName):
 # Checks if the given string is a common name for a taxon (e.g. Spider for Aranea)
 # Guarantees that the true taxon will be in the tree, if it exists
 def checkCommonName(pageName):
-    page = parse(pageName)
-    temps = page.filter_templates()
-    temp = ""
     found = False
-    for t in temps:
-        if t.has("taxon"):
-            temp = t
-            found = True
-            break
-    if found:
-        taxonParam = temp.get("taxon")
-        taxon = taxonParam.split("=")[1]
-        cleanTaxon = cleanPageName(taxon)
-        if cleanTaxon not in treeDict:
-            addTaxonTree(cleanTaxon)
-        commonNames[pageName] = cleanTaxon
+    try:
+        page = parse(pageName)
+        temps = page.filter_templates()
+        temp = ""
+        for t in temps:
+            if t.has("taxon"):
+                temp = t
+                found = True
+                break
+        if found:
+            taxonParam = temp.get("taxon")
+            taxon = taxonParam.split("=")[1]
+            cleanTaxon = cleanPageName(taxon)
+            if cleanTaxon not in treeDict:
+                addTaxonTree(cleanTaxon)
+            commonNames[pageName] = cleanTaxon
+            treeDict[cleanTaxon].setCommonName(pageName)
+    except KeyError:
+        pass
+    return found
+
+
+# Attempts to parse 'Template:Taxonomy/<pageName>' as a Wikipedia page and returns whether it succeeds or not
+def checkTaxonomyTemplate(pageName):
+    pageName = cleanPageName(pageName)
+    found = False
+    try:
+        pageName = "Template:Taxonomy/" + pageName
+        page = parse(pageName)
+        found = True
+    except KeyError:
+        pass
     return found
 
 
@@ -163,11 +184,15 @@ def printTaxonTree(pageName):
     if pageName not in treeDict:
         if pageName in aliases:
             pageName = aliases[pageName]
-        elif pageName in commonNames or checkCommonName(pageName):
+        elif pageName in commonNames:
+            pageName = commonNames[pageName]
+        elif checkTaxonomyTemplate(pageName):
+            addTaxonTree(pageName)
+        elif checkCommonName(pageName):
             pageName = commonNames[pageName]
         else:
-            addTaxonTree(pageName)
-            printTaxonTree(pageName)
+            print(pageName + " is not a valid taxon or common name.")
+            sys.exit()
     clades = treeDict[pageName].cladeList.copy()
     clades.reverse()
     for clade in clades:
@@ -182,25 +207,26 @@ def listTaxonTree(pageName):
         return treeDict[pageName].cladeList
     elif pageName in aliases:
         return treeDict[aliases[pageName]].cladeList
-    elif pageName in commonNames or checkCommonName(pageName):
+    elif pageName in commonNames:
         return treeDict[commonNames[pageName]].cladeList
-    else:
+    elif checkTaxonomyTemplate(pageName):
         addTaxonTree(pageName)
         return listTaxonTree(pageName)
+    elif checkCommonName(pageName):
+        return treeDict[commonNames[pageName]].cladeList
+    else:
+        print(pageName + " is not a valid taxon or common name.")
+        sys.exit()
 
 
 # Adds a new taxon tree to the dictionary
 def addTaxonTree(pageName):
     pageName = cleanPageName(pageName)
-    try:
-        parent = getTaxonData(pageName, "parent")
-        rank = cleanRank(getTaxonData(pageName, "rank"))
-        result = [pageName] + listTaxonTree(parent)
-        treeDict[pageName] = Node(pageName, result, rank)
-        registerChild(pageName)
-    except KeyError:
-        print(pageName + " is not a valid taxon or common name.")
-        sys.exit()
+    parent = cleanPageName(getTaxonData(pageName, "parent"))
+    rank = cleanRank(getTaxonData(pageName, "rank"))
+    result = [pageName] + listTaxonTree(parent)
+    treeDict[pageName] = Node(pageName, result, rank)
+    registerChild(pageName)
 
 
 # Removes dumb characters from the rank, then anglicises it
@@ -452,7 +478,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    commonClade("Beaver","Hare")
+    print(treeDict["Selachimorpha"].commonName)
 
 
 # childrenOf("Selachimorpha")
