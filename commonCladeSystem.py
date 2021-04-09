@@ -68,8 +68,11 @@ replacements = {
     "familia": "family",
     "ordo": "order",
     "tribus": "tribe",
+    "divisio": "division",
 }
 
+# Things that break this. Fix later.
+dumbStuff = ["Basutodon"]
 
 # This puts the data in its correct place for processing
 def loadData(fileTuple):
@@ -295,15 +298,12 @@ def backlinks(page, limit, cont="", subpageOnly=True):
     output = []
     if "continue" in res:
         contOut = res['continue']['blcontinue']
-    if subpageOnly:
-        for var in text:
-            spl = var['title'].split("/")
-            if spl[0] == "Template:Taxonomy" and spl[1] != "Incertae sedis":
+    for var in text:
+        spl = var['title'].split("/")
+        if spl[0] == "Template:Taxonomy" and spl[1] != "Incertae sedis" and spl[1] not in dumbStuff:
+            if subpageOnly:
                 output.append(spl[1])
-    else:
-        for var in text:
-            spl = var['title'].split("/")
-            if spl[0] == "Template:Taxonomy" and spl[1] != "Incertae sedis":
+            else:
                 output.append(var['title'])
     return output, contOut
 
@@ -327,7 +327,7 @@ def addAll(page):
                 print("Added item " + str(counter) + ": " + var)
             else:
                 print("Item " + str(counter) + " already exists: " + var)
-        counter += 1
+            counter += 1
 
 
 # Deletes a node from the tree. Nodes with children cannot be deleted, for safety's sake.
@@ -427,9 +427,9 @@ def checkUpdates():
     lastUpdated = my_date.isoformat()[:-7] + "Z"
 
 
-# Returns a list of pages linking to Template:Taxonomy/Sauria that have been changed since the last check
+# Returns a list of pages linking to Template:Taxonomy/Diapsida that have been changed since the last check
 # The optional target parameter can be used to specify a broader or narrower search for pages
-def related(timestamp, target="Sauria"):
+def related(timestamp, target="Diapsida"):
     params = {
         "action": "feedrecentchanges",
         "namespace": 10,
@@ -478,7 +478,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    print(treeDict["Selachimorpha"].commonName)
+    print(countGenera("Life"))
 
 
 # childrenOf("Selachimorpha")
