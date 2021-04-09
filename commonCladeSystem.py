@@ -427,9 +427,9 @@ def checkUpdates():
     lastUpdated = my_date.isoformat()[:-7] + "Z"
 
 
-# Returns a list of pages linking to Template:Taxonomy/Diapsida that have been changed since the last check
+# Returns a list of pages linking to Template:Taxonomy/Reptilia that have been changed since the last check
 # The optional target parameter can be used to specify a broader or narrower search for pages
-def related(timestamp, target="Diapsida"):
+def related(timestamp, target="Reptilia"):
     params = {
         "action": "feedrecentchanges",
         "namespace": 10,
@@ -478,7 +478,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    print(countGenera("Life"))
+    addAll("Reptilia")
 
 
 # childrenOf("Selachimorpha")
