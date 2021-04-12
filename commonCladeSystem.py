@@ -4,6 +4,7 @@ import pickle
 import atexit
 import feedparser
 import sys
+import re
 from datetime import datetime
 
 # Default values
@@ -19,6 +20,7 @@ class Node:
         self.cladeList = list
         self.rank = rank
         self.commonName = ""
+        self.skip = False
         try:
             self.parent = list[1]
         except:
@@ -37,6 +39,9 @@ class Node:
 
     def setCommonName(self, commonName):
         self.commonName = commonName
+
+    def flagSkip(self):
+        self.skip = True
 
     # Overridden methods
     def __str__(self):
@@ -57,6 +62,15 @@ aliases = {
     "Afronaja": "Naja (Afronaja)",
     "Boulengerina": "Naja (Boulengerina)",
     "Cyclorinae": "Cyclocorinae",
+    "Sternidae": "Sternini",
+    "Aegypiinae": "Gypinae",
+    "Gypiinae": "Gypinae",
+    "Odocoileinae": "Capreolinae",
+    "Euungulata": "Ungulata",
+    "Anteosauroidea": "Anteosauria",
+    "\"Haptodus\"": "Haptodus",
+    "Hapsidopareiontidae": "Hapsidopareiidae",
+    "Keraterpetontidae": "Diplocaulidae",
 }
 commonNames = {}
 
@@ -72,7 +86,7 @@ replacements = {
 }
 
 # Things that break this. Fix later.
-dumbStuff = ["Basutodon"]
+dumbStuff = []
 
 # This puts the data in its correct place for processing
 def loadData(fileTuple):
@@ -136,8 +150,11 @@ def getTaxonData(pageName, data):
 # Removes dumb characters from the pagename like spaces or newlines
 def cleanPageName(pageName):
     pageName = pageName.replace("/?", "")
+    pageName = pageName.replace("/displayed", "")
     pageName = pageName.replace("/skip", "")
     pageName = pageName.replace("\r", "")
+    pageName = pageName.replace("/\"", "")
+    pageName = re.sub("<!--.*-->","",pageName)
     pageName = pageName.strip()
     return pageName
 
@@ -312,22 +329,31 @@ def backlinks(page, limit, cont="", subpageOnly=True):
 def addAll(page):
     pages, cont = backlinks("Template:Taxonomy/" + page, 500)
     counter = 1
-    for var in pages:
-        if var not in treeDict and var not in aliases:
-            addTaxonTree(var)
-            print("Added item " + str(counter) + ": " + var)
-        else:
-            print("Item " + str(counter) + " already exists: " + var)
-        counter += 1
-    while cont != -1:
-        pages, cont = backlinks("Template:Taxonomy/" + page, 500, cont=cont)
+    while True:
         for var in pages:
-            if var not in treeDict and var not in aliases:
-                addTaxonTree(var)
-                print("Added item " + str(counter) + ": " + var)
+            if "/skip" in var:
+                cleanVar = cleanPageName(var)
+                if cleanVar == page:
+                    continue
+                if cleanVar in treeDict and treeDict[cleanVar].skip:
+                    print("Found completed /skip. Skipping item " + str(counter) + ": " + cleanVar)
+                else:
+                    print("Found incomplete /skip. Now running addAll(" + cleanVar + ").")
+                    addAll(cleanVar)
+                    treeDict[cleanVar].flagSkip()
+                    print("Added all subpages for item " + str(counter) + ": " + var)
             else:
-                print("Item " + str(counter) + " already exists: " + var)
+                if var not in treeDict and var not in aliases:
+                    addTaxonTree(var)
+                    print("Added item " + str(counter) + ": " + var)
+                else:
+                    print("Item " + str(counter) + " already exists: " + var)
             counter += 1
+
+        if cont == -1:
+            break
+        else:
+            pages, cont = backlinks("Template:Taxonomy/" + page, 500, cont=cont)
 
 
 # Deletes a node from the tree. Nodes with children cannot be deleted, for safety's sake.
@@ -382,7 +408,7 @@ def sisterClades(clade, noGen=False):
 # Returns a count of how many genera are currently listed under the given clade
 def countGenera(clade, counter=0):
     for var in treeDict[clade].children:
-        if treeDict[var].rank == "genus":
+        if "genus" in treeDict[var].rank:
             counter += 1
         else:
             counter = countGenera(var, counter)
@@ -427,9 +453,9 @@ def checkUpdates():
     lastUpdated = my_date.isoformat()[:-7] + "Z"
 
 
-# Returns a list of pages linking to Template:Taxonomy/Reptilia that have been changed since the last check
+# Returns a list of pages linking to Template:Taxonomy/Amniota that have been changed since the last check
 # The optional target parameter can be used to specify a broader or narrower search for pages
-def related(timestamp, target="Reptilia"):
+def related(timestamp, target="Amniota"):
     params = {
         "action": "feedrecentchanges",
         "namespace": 10,
@@ -478,7 +504,22 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    commonClade("Eagle","Falcon")
+    print(countGenera("Life"))
+
+    """output = []
+    links, cont = backlinks("Template:Taxonomy/Animalia",500,subpageOnly=False)
+    for var in links:
+        if "/skip" in var:
+            output.append(var)
+    while cont != -1:
+        links, cont = backlinks("Template:Taxonomy/Animalia", 500, cont=cont, subpageOnly=False)
+        for var in links:
+            if "/skip" in var:
+                output.append(var)
+    for var in output:
+        name = var.split("/")[1]
+        if "Amniota" in treeDict[name].cladeList and "Sauria" not in treeDict[name].cladeList:
+            print(name)"""
 
 
 # childrenOf("Selachimorpha")

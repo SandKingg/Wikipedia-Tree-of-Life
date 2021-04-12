@@ -12,7 +12,7 @@ import pickle
 
 
 def loadTree(name="Sauria"):
-    if ccs.treeDict[name].rank != "genus":
+    if "genus" not in ccs.treeDict[name].rank:
         text = name + " (" + str(ccs.countGenera(name)) + ")"
     else:
         text = name
