@@ -11,7 +11,7 @@ import pickle
     outputArea["state"] = "disabled"'''
 
 
-def loadTree(name="Sauria"):
+def loadTree(name="Tetrapoda"):
     if "genus" not in ccs.treeDict[name].rank:
         text = name + " (" + str(ccs.countGenera(name)) + ")"
     else:
@@ -36,7 +36,7 @@ tree.grid(row=0, column=0, sticky=tk.NSEW)
 
 tree.column("#0", width=800)
 tree.column("rank", width=100)
-tree.heading("#0", text="Tree of Sauria")
+tree.heading("#0", text="Tree of Tetrapoda")
 tree.heading("rank", text="Rank")
 
 scrollHoriz = ttk.Scrollbar(window, orient=tk.HORIZONTAL, command=tree.xview)
@@ -45,7 +45,7 @@ scrollHoriz.grid(row=1,column=0,sticky=tk.EW)
 scrollVert.grid(row=0,column=1,sticky=tk.NS)
 tree.configure(xscrollcommand=scrollHoriz.set, yscrollcommand=scrollVert.set)
 
-tree.insert('', 0, "Neodiapsida", text="Neodiapsida")
+tree.insert('', 0, "Stegocephalia", text="Stegocephalia")
 loadTree()
 
 # DO NOT WRITE CODE AFTER THIS

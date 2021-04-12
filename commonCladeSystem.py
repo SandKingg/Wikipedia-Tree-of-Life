@@ -15,14 +15,14 @@ API_URL = "https://en.wikipedia.org/w/api.php"
 
 # A class to represent each part of the 'tree'. A node is either a genus or a clade. Each node has a name, rank, a parent node, a list of children and a list detailing its taxonomy.
 class Node:
-    def __init__(self, name, list, rank):
+    def __init__(self, name, cladeList, rank):
         self.name = name
-        self.cladeList = list
+        self.cladeList = cladeList
         self.rank = rank
         self.commonName = ""
         self.skip = False
         try:
-            self.parent = list[1]
+            self.parent = cladeList[1]
         except:
             self.parent = ""
         self.children = []
@@ -71,6 +71,8 @@ aliases = {
     "\"Haptodus\"": "Haptodus",
     "Hapsidopareiontidae": "Hapsidopareiidae",
     "Keraterpetontidae": "Diplocaulidae",
+    "Zatracheidae": "Zatrachydidae",
+    "Chirixalus": "Chiromantis",
 }
 commonNames = {}
 
@@ -152,6 +154,7 @@ def cleanPageName(pageName):
     pageName = pageName.replace("/?", "")
     pageName = pageName.replace("/displayed", "")
     pageName = pageName.replace("/skip", "")
+    pageName = pageName.replace("/Class", "")
     pageName = pageName.replace("\r", "")
     pageName = pageName.replace("/\"", "")
     pageName = re.sub("<!--.*-->","",pageName)
@@ -191,7 +194,7 @@ def checkTaxonomyTemplate(pageName):
     found = False
     try:
         pageName = "Template:Taxonomy/" + pageName
-        page = parse(pageName)
+        parse(pageName)
         found = True
     except KeyError:
         pass
@@ -268,7 +271,7 @@ def commonClade(page1, page2):
     print("Comparing lists")
     st = ""
     counter = 0
-    if (len(list1) > len(list2)):
+    if len(list1) > len(list2):
         while len(list2) > 0:
             if list1[0] != list2[0]:
                 break
@@ -443,19 +446,18 @@ def checkUpdates():
     global lastUpdated
     print("Checking for updates...")
     toUpdate = related(lastUpdated)
+    my_date = datetime.now()
+    lastUpdated = my_date.isoformat()[:-7] + "Z"
 
     if len(toUpdate) == 0:
         print("No updates found.")
     else:
         for var in toUpdate:
             forceUpdate(var)
-    my_date = datetime.now()
-    lastUpdated = my_date.isoformat()[:-7] + "Z"
 
 
-# Returns a list of pages linking to Template:Taxonomy/Amniota that have been changed since the last check
-# The optional target parameter can be used to specify a broader or narrower search for pages
-def related(timestamp, target="Amniota"):
+# Returns a list of pages linking to Template:Taxonomy/Animalia that have been changed since the last check
+def related(timestamp):
     params = {
         "action": "feedrecentchanges",
         "namespace": 10,
@@ -463,7 +465,7 @@ def related(timestamp, target="Amniota"):
         "limit": 50,
         "from": timestamp,
         "hidecategorization": True,
-        "target": "Template:Taxonomy/" + target,
+        "target": "Template:Taxonomy/Nephrozoa",
         "showlinkedto": True,
         "format": "json",
         "formatversion": "2",
@@ -504,22 +506,19 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    print(countGenera("Life"))
+    printTaxonTree("Earthworm")
 
     """output = []
-    links, cont = backlinks("Template:Taxonomy/Animalia",500,subpageOnly=False)
+    links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
     for var in links:
         if "/skip" in var:
             output.append(var)
     while cont != -1:
-        links, cont = backlinks("Template:Taxonomy/Animalia", 500, cont=cont, subpageOnly=False)
+        links, cont = backlinks("Template:Taxonomy/Nephrozoa", 500, cont=cont, subpageOnly=False)
         for var in links:
             if "/skip" in var:
                 output.append(var)
-    for var in output:
-        name = var.split("/")[1]
-        if "Amniota" in treeDict[name].cladeList and "Sauria" not in treeDict[name].cladeList:
-            print(name)"""
+    print(len(output))"""
 
 
 # childrenOf("Selachimorpha")
