@@ -26,22 +26,32 @@ class Node:
         except:
             self.parent = ""
         self.children = []
+        self.lastUpdated = datetime.now().isoformat()[:-7] + "Z"
 
     def addChild(self, child):
         self.children.append(child)
+
+    def setParent(self, parent):
+        self.parent = parent
+
+    def setRank(self, rank):
+        self.rank = rank
+
+    def setCladeList(self, cladeList):
+        self.cladeList = cladeList
+
+    def setCommonName(self, commonName):
+        self.commonName = commonName
 
     def removeChild(self, child):
         if child in self.children:
             self.children.remove(child)
 
-    def addRank(self, rank):
-        self.rank = rank
-
-    def setCommonName(self, commonName):
-        self.commonName = commonName
-
     def flagSkip(self):
         self.skip = True
+
+    def markUpdated(self):
+        self.lastUpdated = datetime.now().isoformat()[:-7] + "Z"
 
     # Overridden methods
     def __str__(self):
@@ -73,6 +83,7 @@ aliases = {
     "Keraterpetontidae": "Diplocaulidae",
     "Zatracheidae": "Zatrachydidae",
     "Chirixalus": "Chiromantis",
+    "Plesiosuchia": "Plesiosuchina"
 }
 commonNames = {}
 
@@ -152,11 +163,13 @@ def getTaxonData(pageName, data):
 # Removes dumb characters from the pagename like spaces or newlines
 def cleanPageName(pageName):
     pageName = pageName.replace("/?", "")
+    pageName = pageName.replace("?", "")
     pageName = pageName.replace("/displayed", "")
     pageName = pageName.replace("/skip", "")
     pageName = pageName.replace("/Class", "")
     pageName = pageName.replace("\r", "")
     pageName = pageName.replace("/\"", "")
+    pageName = pageName.replace("Incertae sedis/", "")
     pageName = re.sub("<!--.*-->","",pageName)
     pageName = pageName.strip()
     return pageName
@@ -436,9 +449,39 @@ def forceUpdate(clade):
     if pageName not in treeDict:
         addAll(pageName)
     else:
-        treeDict[treeDict[pageName].parent].removeChild(pageName)
-        addTaxonTree(pageName)
+        refreshData(pageName,True)
+        refreshChildren(pageName)
     print("Updated " + pageName)
+
+
+# Refreshes the data of a given node
+def refreshData(name, allData=False):
+    node = treeDict[name]
+    if allData:
+        node.markUpdated()
+        newParent = cleanPageName(getTaxonData(name, "parent"))
+        newRank = cleanRank(getTaxonData(name, "rank"))
+
+        if newParent != node.parent:
+            if newParent in aliases:
+                newParent = aliases[newParent]
+            elif newParent not in treeDict:
+                addTaxonTree(newParent)
+            treeDict[node.parent].removeChild(name)
+            node.setParent(newParent)
+            registerChild(name)
+
+        if newRank != node.rank:
+            node.setRank(newRank)
+
+    node.setCladeList([name] + listTaxonTree(node.parent))
+
+
+# Traverses the tree to refresh the data of all child nodes
+def refreshChildren(name, allData=False):
+    refreshData(name,allData)
+    for child in treeDict[name].children:
+        refreshChildren(child,allData)
 
 
 # Updates the data of all pages that have been edited since the last check
@@ -479,6 +522,7 @@ def related(timestamp):
     return output
 
 
+# Returns a pair consisting of the deepest clade from the given node and its depth from that node
 def deepestFrom(name,depth=0):
     node = treeDict[name]
     deepestNode = name
@@ -491,6 +535,67 @@ def deepestFrom(name,depth=0):
             deepestNode = testNode
 
     return deepestNode,maxDepth
+
+
+# Takes in a list of 50 or fewer names and returns a list of those that need updating
+def checkListForUpdates(toCheck):
+    joinedList = "|".join(toCheck)
+    params = {
+        "action": "query",
+        "prop": "revisions",
+        "titles": joinedList,
+        "rvprop": "timestamp",
+        "format": "json",
+        "formatversion": "2",
+    }
+    headers = {"User-Agent": "My-Bot-Name/1.0"}
+    req = requests.get(API_URL, headers=headers, params=params)
+    res = req.json()["query"]["pages"]
+    revisions = []
+    output = []
+    for id in res:
+        try:
+            revisions.append(id["revisions"][0]["timestamp"])
+        except KeyError:
+            name = id["title"]
+            print(name + " has caused an error. The page likely does not exist.")
+            revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
+    for var in range(len(toCheck)):
+        name = toCheck[var].split("/")[1]
+        if treeDict[name].lastUpdated < revisions[var]:
+            output.append(name)
+    return output
+
+
+# A long winded check for updates
+def fullUpdate(root="Gnathostomata"):
+    #Step 1 - add any new pages that weren't caught
+    addAll(root)
+    #Step 1.5 - remember to check skip templates
+    addAll("Aves")  # remove once we get to Chordata
+    addAll("Amphibia")  # remove once we get to Vertebrata
+    #addAll("Coelacanthiformes") (skips to Sarcopterygii)
+    #addAll("Bombycina") (skips to Lepidoptera)
+
+    print("Looking for pages that need updating...")
+    #Step 2 - Get a list of pages that need updating
+    ary = []
+    needsUpdating = []
+    for var in treeDict:
+        ary.append("Template:Taxonomy/" + var)
+    while len(ary) > 50:
+        tempAry = []
+        for var in range(50):
+            tempAry.append(ary.pop(0))
+        needsUpdating += checkListForUpdates(tempAry)
+    needsUpdating += checkListForUpdates(ary)
+
+    print("Updating pages...")
+    #Step 3 - Update everything that needs updating
+    for node in needsUpdating:
+        if node != "Life":
+            refreshData(node, True)
+            refreshChildren(node)
 
 
 # Goes through the default startup routine, importing the tree from the file and setting lastUpdated
@@ -506,7 +611,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    printTaxonTree("Earthworm")
+    addAll("Gnathostomata")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
@@ -518,7 +623,7 @@ if __name__ == "__main__":
         for var in links:
             if "/skip" in var:
                 output.append(var)
-    print(len(output))"""
+    print(output)"""
 
 
 # childrenOf("Selachimorpha")
