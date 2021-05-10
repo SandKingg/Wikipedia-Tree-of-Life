@@ -184,7 +184,7 @@ def checkCommonName(pageName):
         temps = page.filter_templates()
         temp = ""
         for t in temps:
-            if t.has("taxon"):
+            if t.name.matches("Automatic taxobox") and t.has("taxon"):
                 temp = t
                 found = True
                 break
@@ -268,6 +268,7 @@ def addTaxonTree(pageName):
 # Removes dumb characters from the rank, then anglicises it
 def cleanRank(rank):
     rank = rank.strip()
+    rank = re.sub("<!--.*-->","",rank)
     for rep in replacements:
         rank = rank.replace(rep, replacements[rep])
     return rank
@@ -568,13 +569,12 @@ def checkListForUpdates(toCheck):
 
 
 # A long winded check for updates
-def fullUpdate(root="Gnathostomata"):
+def fullUpdate(root="Vertebrata"):
     #Step 1 - add any new pages that weren't caught
     addAll(root)
     #Step 1.5 - remember to check skip templates
     addAll("Aves")  # remove once we get to Chordata
-    addAll("Amphibia")  # remove once we get to Vertebrata
-    #addAll("Coelacanthiformes") (skips to Sarcopterygii)
+    addAll("Aves/skip")  # remove once we get to Chordata
     #addAll("Bombycina") (skips to Lepidoptera)
 
     print("Looking for pages that need updating...")
@@ -590,12 +590,15 @@ def fullUpdate(root="Gnathostomata"):
         needsUpdating += checkListForUpdates(tempAry)
     needsUpdating += checkListForUpdates(ary)
 
-    print("Updating pages...")
-    #Step 3 - Update everything that needs updating
-    for node in needsUpdating:
-        if node != "Life":
-            refreshData(node, True)
-            refreshChildren(node)
+    if len(needsUpdating > 0):
+        print("Updating pages...")
+        #Step 3 - Update everything that needs updating
+        for node in needsUpdating:
+            if node != "Life":
+                refreshData(node, True)
+                refreshChildren(node)
+    else:
+        print("Nothing to update.")
 
 
 # Goes through the default startup routine, importing the tree from the file and setting lastUpdated
@@ -611,7 +614,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    addAll("Gnathostomata")
+    commonClade("Bombycina","Mammalia")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
