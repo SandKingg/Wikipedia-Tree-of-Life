@@ -563,14 +563,12 @@ def checkListForUpdates(toCheck):
             name = id["title"]
             print(name + " has caused an error. The page likely does not exist.")
             revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
-    try:
-        for var in range(len(toCheck)):
-            name = toCheck[var].split("/")[1]
-            if treeDict[name].lastUpdated < revisions[var]:
-                output.append(name)
-        return output
-    except:
-        print("Error.")
+
+    for var in range(len(toCheck)):
+        name = toCheck[var].split("/")[1]
+        if treeDict[name].lastUpdated < revisions[var]:
+            output.append(name)
+    return output
 
 
 # A long winded check for updates
