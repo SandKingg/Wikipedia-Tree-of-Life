@@ -496,6 +496,8 @@ def checkUpdates():
     if len(toUpdate) == 0:
         print("No updates found.")
     else:
+        if len(toUpdate) == 50:
+            print("Maximum limit reached for update auto-checking. Running fullUpdate() is suggested.")
         for var in toUpdate:
             forceUpdate(var)
 
@@ -561,11 +563,14 @@ def checkListForUpdates(toCheck):
             name = id["title"]
             print(name + " has caused an error. The page likely does not exist.")
             revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
-    for var in range(len(toCheck)):
-        name = toCheck[var].split("/")[1]
-        if treeDict[name].lastUpdated < revisions[var]:
-            output.append(name)
-    return output
+    try:
+        for var in range(len(toCheck)):
+            name = toCheck[var].split("/")[1]
+            if treeDict[name].lastUpdated < revisions[var]:
+                output.append(name)
+        return output
+    except:
+        print("Error.")
 
 
 # A long winded check for updates
@@ -590,7 +595,7 @@ def fullUpdate(root="Vertebrata"):
         needsUpdating += checkListForUpdates(tempAry)
     needsUpdating += checkListForUpdates(ary)
 
-    if len(needsUpdating > 0):
+    if len(needsUpdating) > 0:
         print("Updating pages...")
         #Step 3 - Update everything that needs updating
         for node in needsUpdating:
@@ -599,6 +604,18 @@ def fullUpdate(root="Vertebrata"):
                 refreshChildren(node)
     else:
         print("Nothing to update.")
+
+
+# Prints a line-by-line representation of a tree
+def treeReport(root,max=-1,depth=0):
+    indent = ""
+    for var in range(depth):
+        indent += "\t"
+    print(indent + root)
+
+    if max == -1 or depth < max:
+        for var in treeDict[root].children:
+            treeReport(var,max,depth+1)
 
 
 # Goes through the default startup routine, importing the tree from the file and setting lastUpdated
@@ -614,7 +631,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    commonClade("Bombycina","Mammalia")
+    treeReport("Testudinata",2)
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
