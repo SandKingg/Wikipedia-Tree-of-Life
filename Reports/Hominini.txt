@@ -1,0 +1,12 @@
+Hominini
+	Homo
+	Panina
+		Pan
+	Hominina
+		Ardipithecus
+	Australopithecina
+		Australopithecus
+		Praeanthropus
+		Paranthropus
+	Orrorin
+	Kenyanthropus

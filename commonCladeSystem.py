@@ -15,10 +15,11 @@ API_URL = "https://en.wikipedia.org/w/api.php"
 
 # A class to represent each part of the 'tree'. A node is either a genus or a clade. Each node has a name, rank, a parent node, a list of children and a list detailing its taxonomy.
 class Node:
-    def __init__(self, name, cladeList, rank):
+    def __init__(self, name, cladeList, rank, extinct):
         self.name = name
         self.cladeList = cladeList
         self.rank = rank
+        self.extinct = extinct
         self.commonName = ""
         self.skip = False
         try:
@@ -36,6 +37,9 @@ class Node:
 
     def setRank(self, rank):
         self.rank = rank
+
+    def setExtinct(self,extinct):
+        self.extinct = extinct
 
     def setCladeList(self, cladeList):
         self.cladeList = cladeList
@@ -160,6 +164,24 @@ def getTaxonData(pageName, data):
     return paramData
 
 
+# Returns the value of the 'extinct' parameter for a specified page
+def getExtinct(pageName):
+    pageName = "Template:Taxonomy/" + pageName
+    page = parse(pageName)
+    temps = page.filter_templates()
+    temp = ""
+    found = False
+    for t in temps:
+        if t.has("extinct"):
+            temp = t
+            found = True
+            break
+    if found:
+        param = temp.get("extinct").lower()
+        paramData = cleanPageName(param.split("=")[1])
+    return found and (paramData == "yes" or paramData == "true")
+
+
 # Removes dumb characters from the pagename like spaces or newlines
 def cleanPageName(pageName):
     pageName = pageName.replace("/?", "")
@@ -260,8 +282,9 @@ def addTaxonTree(pageName):
     pageName = cleanPageName(pageName)
     parent = cleanPageName(getTaxonData(pageName, "parent"))
     rank = cleanRank(getTaxonData(pageName, "rank"))
+    extinct = getExtinct(pageName)
     result = [pageName] + listTaxonTree(parent)
-    treeDict[pageName] = Node(pageName, result, rank)
+    treeDict[pageName] = Node(pageName, result, rank, extinct)
     registerChild(pageName)
 
 
@@ -448,7 +471,7 @@ def listGenera(clade, currentList=None):
 def forceUpdate(clade):
     pageName = cleanPageName(clade)
     if pageName not in treeDict:
-        addAll(pageName)
+        addTaxonTree(pageName)
     else:
         refreshData(pageName,True)
         refreshChildren(pageName)
@@ -462,6 +485,7 @@ def refreshData(name, allData=False):
         node.markUpdated()
         newParent = cleanPageName(getTaxonData(name, "parent"))
         newRank = cleanRank(getTaxonData(name, "rank"))
+        newExtinct = getExtinct(name)
 
         if newParent != node.parent:
             if newParent in aliases:
@@ -472,8 +496,8 @@ def refreshData(name, allData=False):
             node.setParent(newParent)
             registerChild(name)
 
-        if newRank != node.rank:
-            node.setRank(newRank)
+        node.setRank(newRank)
+        node.setExtinct(newExtinct)
 
     node.setCladeList([name] + listTaxonTree(node.parent))
 
@@ -600,20 +624,53 @@ def fullUpdate(root="Vertebrata"):
             if node != "Life":
                 refreshData(node, True)
                 refreshChildren(node)
+                print("Updated " + node)
     else:
         print("Nothing to update.")
 
 
 # Prints a line-by-line representation of a tree
-def treeReport(root,max=-1,depth=0):
+def printTreeReport(root,max=-1,depth=0):
     indent = ""
     for var in range(depth):
         indent += "\t"
-    print(indent + root)
+    clade = treeDict[root]
+    if hasattr(clade, "commonName") and clade.commonName != "":
+        print(indent + clade.commonName + " (" + root + ")")
+    else:
+        print(indent + root)
 
     if max == -1 or depth < max:
-        for var in treeDict[root].children:
-            treeReport(var,max,depth+1)
+        for var in clade.children:
+            printTreeReport(var,max,depth+1)
+
+
+# Creates a tree report in a file
+def fileTreeReport(root,max=-1):
+    if max == -1:
+        name = "Reports/"+root+".txt"
+    else:
+        name = "Reports/"+root+str(max)+".txt"
+
+    stack = [(root,0)]
+    with open(name,"w") as file:
+        while stack:
+            node,depth = stack.pop(0)
+            indent = ""
+            for var in range(depth):
+                indent += "\t"
+
+            clade = treeDict[node]
+            if hasattr(clade, "commonName") and clade.commonName != "":
+                file.write(indent + clade.commonName + " (" + node + ")\n")
+            else:
+                file.write(indent + node + "\n")
+
+            if max == -1 or depth < max:
+                temp = []
+                for var in clade.children:
+                    temp.append((var,depth+1))
+                stack[0:0] = temp
 
 
 # Goes through the default startup routine, importing the tree from the file and setting lastUpdated
@@ -629,7 +686,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    treeReport("Testudinata",2)
+    childrenOf("Bird")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
