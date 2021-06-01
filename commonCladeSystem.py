@@ -151,7 +151,10 @@ def parse(title):
 
 # Returns the value of a specified parameter for a specified page
 def getTaxonData(pageName, data):
-    pageName = "Template:Taxonomy/" + pageName
+    splitTest = pageName.split("/")
+    if len(splitTest) == 1:
+        pageName = "Template:Taxonomy/" + pageName
+
     page = parse(pageName)
     temps = page.filter_templates()
     temp = ""
@@ -166,7 +169,10 @@ def getTaxonData(pageName, data):
 
 # Returns the value of the 'extinct' parameter for a specified page
 def getExtinct(pageName):
-    pageName = "Template:Taxonomy/" + pageName
+    splitTest = pageName.split("/")
+    if len(splitTest) == 1:
+        pageName = "Template:Taxonomy/" + pageName
+
     page = parse(pageName)
     temps = page.filter_templates()
     temp = ""
@@ -206,7 +212,8 @@ def checkCommonName(pageName):
         temps = page.filter_templates()
         temp = ""
         for t in temps:
-            if t.name.matches("Automatic taxobox") and t.has("taxon"):
+            name = cleanPageName(str(t.name))
+            if name.lower() == "automatic taxobox" and t.has("taxon"):
                 temp = t
                 found = True
                 break
@@ -407,6 +414,7 @@ def delNode(node):
     else:
         treeDict[treeDict[node].parent].removeChild(node)
         del treeDict[node]
+        print("Node deleted")
 
 
 # Adds the given node to its parent's list of children
@@ -483,6 +491,7 @@ def refreshData(name, allData=False):
     node = treeDict[name]
     if allData:
         node.markUpdated()
+
         newParent = cleanPageName(getTaxonData(name, "parent"))
         newRank = cleanRank(getTaxonData(name, "rank"))
         newExtinct = getExtinct(name)
@@ -491,7 +500,7 @@ def refreshData(name, allData=False):
             if newParent in aliases:
                 newParent = aliases[newParent]
             elif newParent not in treeDict:
-                addTaxonTree(newParent)
+                addTaxonTree("Template:Taxonomy/" + newParent)
             treeDict[node.parent].removeChild(name)
             node.setParent(newParent)
             registerChild(name)
@@ -610,11 +619,18 @@ def fullUpdate(root="Vertebrata"):
     needsUpdating = []
     for var in treeDict:
         ary.append("Template:Taxonomy/" + var)
+
+    length = len(ary)
+    iterations = (length // 50) + 1 #+1 to get the ceiling
+    iterCounter = 1
     while len(ary) > 50:
+        print("Checking set " + str(iterCounter) + " of " + str(iterations))
         tempAry = []
         for var in range(50):
             tempAry.append(ary.pop(0))
         needsUpdating += checkListForUpdates(tempAry)
+        iterCounter += 1
+    print("Checking set " + str(iterations) + " of " + str(iterations))
     needsUpdating += checkListForUpdates(ary)
 
     if len(needsUpdating) > 0:
@@ -686,7 +702,7 @@ if __name__ == "__main__":
     checkUpdates()
 
     #Put actual commands below here
-    childrenOf("Bird")
+    fullUpdate()
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
