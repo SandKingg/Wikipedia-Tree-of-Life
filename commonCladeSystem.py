@@ -47,6 +47,9 @@ class Node:
     def setCommonName(self, commonName):
         self.commonName = commonName
 
+    def removeCommonName(self):
+        self.commonName = ""
+
     def removeChild(self, child):
         if child in self.children:
             self.children.remove(child)
@@ -151,9 +154,7 @@ def parse(title):
 
 # Returns the value of a specified parameter for a specified page
 def getTaxonData(pageName, data):
-    splitTest = pageName.split("/")
-    if len(splitTest) == 1:
-        pageName = "Template:Taxonomy/" + pageName
+    pageName = addTemplate(pageName)
 
     page = parse(pageName)
     temps = page.filter_templates()
@@ -169,9 +170,7 @@ def getTaxonData(pageName, data):
 
 # Returns the value of the 'extinct' parameter for a specified page
 def getExtinct(pageName):
-    splitTest = pageName.split("/")
-    if len(splitTest) == 1:
-        pageName = "Template:Taxonomy/" + pageName
+    pageName = addTemplate(pageName)
 
     page = parse(pageName)
     temps = page.filter_templates()
@@ -198,14 +197,74 @@ def cleanPageName(pageName):
     pageName = pageName.replace("\r", "")
     pageName = pageName.replace("/\"", "")
     pageName = pageName.replace("Incertae sedis/", "")
+    pageName = pageName.replace("_", " ")
     pageName = re.sub("<!--.*-->","",pageName)
     pageName = pageName.strip()
     return pageName
 
 
+# Removes dumb characters from the rank, then anglicises it
+def cleanRank(rank):
+    rank = rank.strip()
+    rank = re.sub("<!--.*-->","",rank)
+    for rep in replacements:
+        rank = rank.replace(rep, replacements[rep])
+    return rank
+
+
+# Turns a 'name' into a 'Template:Taxonomy/name' and does nothing otherwise
+def addTemplate(pageName):
+    splitTest = pageName.split("/")
+    if len(splitTest) == 1:
+        pageName = "Template:Taxonomy/" + pageName
+    return pageName
+
+
+# Registers a common name for a given taxon
+def registerCommonName(taxon, common):
+    commonNames[common] = taxon
+    treeDict[taxon].setCommonName(common)
+
+
+# Removes a common name from a given taxon
+def removeCommonName(taxon):
+    node = treeDict[taxon]
+    commonName = node.commonName
+    if commonName == "":
+        print("No common name exists for " + taxon)
+    else:
+        node.removeCommonName()
+        commonNames.pop(commonName)
+        print("Removed the common name '" + commonName + "' for " + taxon)
+
+
+# Searches for common names for children of a given taxon
+def searchCommonNames(taxon):
+    for name in childrenOf(taxon):
+        link = cleanPageName(getTaxonData(name,"link"))
+        if link != name:
+            ccn = checkCommonName(link)
+            if ccn:
+                print("Common name '" + link + "' added for " + name)
+            else:
+                print("No common name found for " + name)
+        else:
+            page = parse(link)
+            if "#redirect" in page.lower():
+                m = re.search("#redirect \[\[(.*)\]\]",page,re.IGNORECASE)
+                redirect = m.group(1)
+                ccn = checkCommonName(redirect)
+                if ccn:
+                    print("Common name '" + redirect + "' added for " + name)
+                else:
+                    print("No common name found for " + name)
+
+
 # Checks if the given string is a common name for a taxon (e.g. Spider for Aranea)
 # Guarantees that the true taxon will be in the tree, if it exists
 def checkCommonName(pageName):
+    if pageName in treeDict:
+        return False
     found = False
     try:
         page = parse(pageName)
@@ -223,8 +282,7 @@ def checkCommonName(pageName):
             cleanTaxon = cleanPageName(taxon)
             if cleanTaxon not in treeDict:
                 addTaxonTree(cleanTaxon)
-            commonNames[pageName] = cleanTaxon
-            treeDict[cleanTaxon].setCommonName(pageName)
+            registerCommonName(cleanTaxon, pageName)
     except KeyError:
         pass
     return found
@@ -235,9 +293,10 @@ def checkTaxonomyTemplate(pageName):
     pageName = cleanPageName(pageName)
     found = False
     try:
-        pageName = "Template:Taxonomy/" + pageName
-        parse(pageName)
-        found = True
+        tempPageName = addTemplate(pageName)
+        content = parse(tempPageName)
+        if "#redirect" not in content.lower():
+            found = True
     except KeyError:
         pass
     return found
@@ -293,15 +352,6 @@ def addTaxonTree(pageName):
     result = [pageName] + listTaxonTree(parent)
     treeDict[pageName] = Node(pageName, result, rank, extinct)
     registerChild(pageName)
-
-
-# Removes dumb characters from the rank, then anglicises it
-def cleanRank(rank):
-    rank = rank.strip()
-    rank = re.sub("<!--.*-->","",rank)
-    for rep in replacements:
-        rank = rank.replace(rep, replacements[rep])
-    return rank
 
 
 # The main function of my original system, this takes two clade names and finds the deepest clade that is common to both
@@ -426,19 +476,19 @@ def registerChild(node):
         parent.addChild(node)
 
 
-# Prints out a list of the children of a given node
+# Returns a list of the children of a given node
 def childrenOf(node, noGen=False):
     if noGen:
         outputList = []
         for var in treeDict[node].children:
             if treeDict[var].rank != "genus":
                 outputList.append(var)
-        print(outputList)
+        return outputList
     else:
-        print(treeDict[node].children)
+        return treeDict[node].children
 
 
-# Prints out a list of all other nodes who are children of this node's parent
+# Returns a list of all other nodes who are children of this node's parent
 # The optional 'noGen' parameter can be used to only print out clades and exclude all genera
 def sisterClades(clade, noGen=False):
     tempList = treeDict[treeDict[clade].parent].children.copy()
@@ -448,9 +498,9 @@ def sisterClades(clade, noGen=False):
         for var in tempList:
             if treeDict[var].rank != "genus":
                 outputList.append(var)
-        print(outputList)
+        return outputList
     else:
-        print(tempList)
+        return tempList
 
 
 # Returns a count of how many genera are currently listed under the given clade
@@ -478,6 +528,7 @@ def listGenera(clade, currentList=None):
 # Forces the system to re-get the data for a given clade
 def forceUpdate(clade):
     pageName = cleanPageName(clade)
+    pageName = pageName.replace("Template:Taxonomy/","")
     if pageName not in treeDict:
         addTaxonTree(pageName)
     else:
@@ -488,6 +539,7 @@ def forceUpdate(clade):
 
 # Refreshes the data of a given node
 def refreshData(name, allData=False):
+    name = name.replace("Template:Taxonomy/", "")
     node = treeDict[name]
     if allData:
         node.markUpdated()
@@ -704,6 +756,8 @@ if __name__ == "__main__":
     #Put actual commands below here
     fullUpdate()
 
+    #printTaxonTree("Old World babbler")
+
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
     for var in links:
@@ -715,9 +769,3 @@ if __name__ == "__main__":
             if "/skip" in var:
                 output.append(var)
     print(output)"""
-
-
-# childrenOf("Selachimorpha")
-# print(len(backlinks("Template:Taxonomy/Pseudosuchia",5000)[0]))
-# ("Octopoda","Selachimorpha")
-# print(countGenera("Selachimorpha"))
