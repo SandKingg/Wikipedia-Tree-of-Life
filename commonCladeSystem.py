@@ -238,26 +238,38 @@ def removeCommonName(taxon):
         print("Removed the common name '" + commonName + "' for " + taxon)
 
 
-# Searches for common names for children of a given taxon
-def searchCommonNames(taxon):
-    for name in childrenOf(taxon):
-        link = cleanPageName(getTaxonData(name,"link"))
-        if link != name:
-            ccn = checkCommonName(link)
-            if ccn:
-                print("Common name '" + link + "' added for " + name)
-            else:
-                print("No common name found for " + name)
-        else:
-            page = parse(link)
-            if "#redirect" in page.lower():
-                m = re.search("#redirect \[\[(.*)\]\]",page,re.IGNORECASE)
-                redirect = m.group(1)
-                ccn = checkCommonName(redirect)
+# Searches for common names for the genera below a given taxon.
+# If children is true, it looks at every first-level child whether a genus or not
+def searchCommonNames(taxon, children=False):
+    if children:
+        list = childrenOf(taxon)
+    else:
+        list = listGenera(taxon)
+    for name in list:
+        clade = treeDict[name]
+        if hasattr(clade, "commonName") and clade.commonName != "":
+            print("Common name '" + clade.commonName + "' already exists for " + name)
+            continue
+        try:
+            link = cleanPageName(getTaxonData(name,"link"))
+            if link != name:
+                ccn = checkCommonName(link)
                 if ccn:
-                    print("Common name '" + redirect + "' added for " + name)
+                    print("Common name '" + link + "' added for " + name)
                 else:
                     print("No common name found for " + name)
+            else:
+                page = parse(link)
+                if "#redirect" in page.lower():
+                    m = re.search("#redirect\s*\[\[(.*)\]\]",str(page),re.IGNORECASE)
+                    redirect = m.group(1)
+                    ccn = checkCommonName(redirect)
+                    if ccn:
+                        print("Common name '" + redirect + "' added for " + name)
+                    else:
+                        print("No common name found for " + name)
+        except KeyError:
+            continue
 
 
 # Checks if the given string is a common name for a taxon (e.g. Spider for Aranea)
@@ -542,23 +554,26 @@ def refreshData(name, allData=False):
     name = name.replace("Template:Taxonomy/", "")
     node = treeDict[name]
     if allData:
-        node.markUpdated()
+        try:
+            newParent = cleanPageName(getTaxonData(name, "parent"))
+            newRank = cleanRank(getTaxonData(name, "rank"))
+            newExtinct = getExtinct(name)
 
-        newParent = cleanPageName(getTaxonData(name, "parent"))
-        newRank = cleanRank(getTaxonData(name, "rank"))
-        newExtinct = getExtinct(name)
+            if newParent != node.parent:
+                if newParent in aliases:
+                    newParent = aliases[newParent]
+                elif newParent not in treeDict:
+                    addTaxonTree("Template:Taxonomy/" + newParent)
+                treeDict[node.parent].removeChild(name)
+                node.setParent(newParent)
+                registerChild(name)
 
-        if newParent != node.parent:
-            if newParent in aliases:
-                newParent = aliases[newParent]
-            elif newParent not in treeDict:
-                addTaxonTree("Template:Taxonomy/" + newParent)
-            treeDict[node.parent].removeChild(name)
-            node.setParent(newParent)
-            registerChild(name)
+            node.setRank(newRank)
+            node.setExtinct(newExtinct)
 
-        node.setRank(newRank)
-        node.setExtinct(newExtinct)
+            node.markUpdated()
+        except AttributeError:
+            print("Error when updating " + name)
 
     node.setCladeList([name] + listTaxonTree(node.parent))
 
@@ -698,7 +713,10 @@ def fullUpdate(root="Vertebrata"):
 
 
 # Prints a line-by-line representation of a tree
-def printTreeReport(root,max=-1,depth=0):
+def printTreeReport(root,max=-1,depth=0,noExtinct=False):
+    if noExtinct and treeDict[root].extinct:
+        return
+
     indent = ""
     for var in range(depth):
         indent += "\t"
@@ -710,15 +728,20 @@ def printTreeReport(root,max=-1,depth=0):
 
     if max == -1 or depth < max:
         for var in clade.children:
-            printTreeReport(var,max,depth+1)
+            printTreeReport(var,max,depth+1,noExtinct)
 
 
 # Creates a tree report in a file
-def fileTreeReport(root,max=-1):
-    if max == -1:
-        name = "Reports/"+root+".txt"
-    else:
-        name = "Reports/"+root+str(max)+".txt"
+def fileTreeReport(root,max=-1,noExtinct=False):
+    if noExtinct and treeDict[root].extinct:
+        return
+
+    name = "Reports/"+root
+    if max != -1:
+        name += str(max)
+    if noExtinct:
+        name += " (Extant)"
+    name += ".txt"
 
     stack = [(root,0)]
     with open(name,"w") as file:
@@ -729,6 +752,9 @@ def fileTreeReport(root,max=-1):
                 indent += "\t"
 
             clade = treeDict[node]
+            if noExtinct and clade.extinct:
+                continue
+
             if hasattr(clade, "commonName") and clade.commonName != "":
                 file.write(indent + clade.commonName + " (" + node + ")\n")
             else:
@@ -752,11 +778,14 @@ def importTree():
 if __name__ == "__main__":
     importTree()
     checkUpdates()
+    #fullUpdate()
 
     #Put actual commands below here
-    fullUpdate()
-
-    #printTaxonTree("Old World babbler")
+    #searchCommonNames("Notosuchia")
+    #printTaxonTree("Seriema")
+    #removeCommonName("Chalawan")
+    #registerCommonName("Mecistops","Slender-snouted crocodile")
+    fileTreeReport("Life")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
