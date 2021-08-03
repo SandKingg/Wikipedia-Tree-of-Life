@@ -563,7 +563,7 @@ def refreshData(name, allData=False):
                 if newParent in aliases:
                     newParent = aliases[newParent]
                 elif newParent not in treeDict:
-                    addTaxonTree("Template:Taxonomy/" + newParent)
+                    addTaxonTree(newParent)
                 treeDict[node.parent].removeChild(name)
                 node.setParent(newParent)
                 registerChild(name)
@@ -777,15 +777,13 @@ def importTree():
 #DO NOT DELETE THIS CODE
 if __name__ == "__main__":
     importTree()
-    checkUpdates()
     #fullUpdate()
 
     #Put actual commands below here
-    #searchCommonNames("Notosuchia")
+    searchCommonNames("Pseudoxenodontinae",True)
     #printTaxonTree("Seriema")
-    #removeCommonName("Chalawan")
-    #registerCommonName("Mecistops","Slender-snouted crocodile")
-    fileTreeReport("Life")
+    #removeCommonName("Sibon")
+    #registerCommonName("Ahaetulla","Asian vine snake")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
