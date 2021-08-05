@@ -38,7 +38,7 @@ class Node:
     def setRank(self, rank):
         self.rank = rank
 
-    def setExtinct(self,extinct):
+    def setExtinct(self, extinct):
         self.extinct = extinct
 
     def setCladeList(self, cladeList):
@@ -107,6 +107,7 @@ replacements = {
 
 # Things that break this. Fix later.
 dumbStuff = []
+
 
 # This puts the data in its correct place for processing
 def loadData(fileTuple):
@@ -198,7 +199,7 @@ def cleanPageName(pageName):
     pageName = pageName.replace("/\"", "")
     pageName = pageName.replace("Incertae sedis/", "")
     pageName = pageName.replace("_", " ")
-    pageName = re.sub("<!--.*-->","",pageName)
+    pageName = re.sub("<!--.*-->", "", pageName)
     pageName = pageName.strip()
     return pageName
 
@@ -206,7 +207,7 @@ def cleanPageName(pageName):
 # Removes dumb characters from the rank, then anglicises it
 def cleanRank(rank):
     rank = rank.strip()
-    rank = re.sub("<!--.*-->","",rank)
+    rank = re.sub("<!--.*-->", "", rank)
     for rep in replacements:
         rank = rank.replace(rep, replacements[rep])
     return rank
@@ -251,7 +252,7 @@ def searchCommonNames(taxon, children=False):
             print("Common name '" + clade.commonName + "' already exists for " + name)
             continue
         try:
-            link = cleanPageName(getTaxonData(name,"link"))
+            link = cleanPageName(getTaxonData(name, "link"))
             if link != name:
                 ccn = checkCommonName(link)
                 if ccn:
@@ -261,7 +262,7 @@ def searchCommonNames(taxon, children=False):
             else:
                 page = parse(link)
                 if "#redirect" in page.lower():
-                    m = re.search("#redirect\s*\[\[(.*)\]\]",str(page),re.IGNORECASE)
+                    m = re.search("#redirect\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
                     redirect = m.group(1)
                     ccn = checkCommonName(redirect)
                     if ccn:
@@ -280,17 +281,22 @@ def checkCommonName(pageName):
     found = False
     try:
         page = parse(pageName)
-        temps = page.filter_templates()
-        temp = ""
-        for t in temps:
-            name = cleanPageName(str(t.name))
-            if name.lower() == "automatic taxobox" and t.has("taxon"):
-                temp = t
+        if "#redirect" in page.lower():
+            m = re.search("#redirect\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
+            redirect = m.group(1)
+            if redirect in treeDict or checkTaxonomyTemplate(redirect):
+                taxon = redirect
                 found = True
-                break
+        else:
+            temps = page.filter_templates()
+            for t in temps:
+                name = cleanPageName(str(t.name))
+                if name.lower() == "automatic taxobox" and t.has("taxon"):
+                    found = True
+                    taxonParam = t.get("taxon")
+                    taxon = taxonParam.split("=")[1]
+                    break
         if found:
-            taxonParam = temp.get("taxon")
-            taxon = taxonParam.split("=")[1]
             cleanTaxon = cleanPageName(taxon)
             if cleanTaxon not in treeDict:
                 addTaxonTree(cleanTaxon)
@@ -314,22 +320,24 @@ def checkTaxonomyTemplate(pageName):
     return found
 
 
+# Checks if <pageName> has the speciesbox template on its page
+def checkSpecies(pageName):
+    pageName = cleanPageName(pageName)
+    try:
+        page = parse(pageName)
+        temps = page.filter_templates()
+        for t in temps:
+            name = cleanPageName(str(t.name))
+            if name.lower() == "speciesbox":
+                return True
+    except KeyError:
+        pass
+    return False
+
+
 # Prints out a taxon tree
 def printTaxonTree(pageName):
-    pageName = cleanPageName(pageName)
-    if pageName not in treeDict:
-        if pageName in aliases:
-            pageName = aliases[pageName]
-        elif pageName in commonNames:
-            pageName = commonNames[pageName]
-        elif checkTaxonomyTemplate(pageName):
-            addTaxonTree(pageName)
-        elif checkCommonName(pageName):
-            pageName = commonNames[pageName]
-        else:
-            print(pageName + " is not a valid taxon or common name.")
-            sys.exit()
-    clades = treeDict[pageName].cladeList.copy()
+    clades = listTaxonTree(pageName).copy()
     clades.reverse()
     for clade in clades:
         node = treeDict[clade]
@@ -350,6 +358,9 @@ def listTaxonTree(pageName):
         return listTaxonTree(pageName)
     elif checkCommonName(pageName):
         return treeDict[commonNames[pageName]].cladeList
+    elif checkSpecies(pageName):
+        print(pageName + " is a species.")
+        sys.exit()
     else:
         print(pageName + " is not a valid taxon or common name.")
         sys.exit()
@@ -540,11 +551,11 @@ def listGenera(clade, currentList=None):
 # Forces the system to re-get the data for a given clade
 def forceUpdate(clade):
     pageName = cleanPageName(clade)
-    pageName = pageName.replace("Template:Taxonomy/","")
+    pageName = pageName.replace("Template:Taxonomy/", "")
     if pageName not in treeDict:
         addTaxonTree(pageName)
     else:
-        refreshData(pageName,True)
+        refreshData(pageName, True)
         refreshChildren(pageName)
     print("Updated " + pageName)
 
@@ -580,9 +591,9 @@ def refreshData(name, allData=False):
 
 # Traverses the tree to refresh the data of all child nodes
 def refreshChildren(name, allData=False):
-    refreshData(name,allData)
+    refreshData(name, allData)
     for child in treeDict[name].children:
-        refreshChildren(child,allData)
+        refreshChildren(child, allData)
 
 
 # Updates the data of all pages that have been edited since the last check
@@ -626,18 +637,18 @@ def related(timestamp):
 
 
 # Returns a pair consisting of the deepest clade from the given node and its depth from that node
-def deepestFrom(name,depth=0):
+def deepestFrom(name, depth=0):
     node = treeDict[name]
     deepestNode = name
     maxDepth = depth
 
     for var in node.children:
-        testNode, testDepth = deepestFrom(treeDict[var].name,depth+1)
+        testNode, testDepth = deepestFrom(treeDict[var].name, depth + 1)
         if testDepth > maxDepth:
             maxDepth = testDepth
             deepestNode = testNode
 
-    return deepestNode,maxDepth
+    return deepestNode, maxDepth
 
 
 # Takes in a list of 50 or fewer names and returns a list of those that need updating
@@ -673,22 +684,22 @@ def checkListForUpdates(toCheck):
 
 # A long winded check for updates
 def fullUpdate(root="Vertebrata"):
-    #Step 1 - add any new pages that weren't caught
+    # Step 1 - add any new pages that weren't caught
     addAll(root)
-    #Step 1.5 - remember to check skip templates
+    # Step 1.5 - remember to check skip templates
     addAll("Aves")  # remove once we get to Chordata
     addAll("Aves/skip")  # remove once we get to Chordata
-    #addAll("Bombycina") (skips to Lepidoptera)
+    # addAll("Bombycina") (skips to Lepidoptera)
 
     print("Looking for pages that need updating...")
-    #Step 2 - Get a list of pages that need updating
+    # Step 2 - Get a list of pages that need updating
     ary = []
     needsUpdating = []
     for var in treeDict:
         ary.append("Template:Taxonomy/" + var)
 
     length = len(ary)
-    iterations = (length // 50) + 1 #+1 to get the ceiling
+    iterations = (length // 50) + 1  # +1 to get the ceiling
     iterCounter = 1
     while len(ary) > 50:
         print("Checking set " + str(iterCounter) + " of " + str(iterations))
@@ -702,7 +713,7 @@ def fullUpdate(root="Vertebrata"):
 
     if len(needsUpdating) > 0:
         print("Updating pages...")
-        #Step 3 - Update everything that needs updating
+        # Step 3 - Update everything that needs updating
         for node in needsUpdating:
             if node != "Life":
                 refreshData(node, True)
@@ -713,7 +724,7 @@ def fullUpdate(root="Vertebrata"):
 
 
 # Prints a line-by-line representation of a tree
-def printTreeReport(root,max=-1,depth=0,noExtinct=False):
+def printTreeReport(root, max=-1, depth=0, noExtinct=False):
     if noExtinct and treeDict[root].extinct:
         return
 
@@ -728,25 +739,25 @@ def printTreeReport(root,max=-1,depth=0,noExtinct=False):
 
     if max == -1 or depth < max:
         for var in clade.children:
-            printTreeReport(var,max,depth+1,noExtinct)
+            printTreeReport(var, max, depth + 1, noExtinct)
 
 
 # Creates a tree report in a file
-def fileTreeReport(root,max=-1,noExtinct=False):
+def fileTreeReport(root, max=-1, noExtinct=False):
     if noExtinct and treeDict[root].extinct:
         return
 
-    name = "Reports/"+root
+    name = "Reports/" + root
     if max != -1:
         name += str(max)
     if noExtinct:
         name += " (Extant)"
     name += ".txt"
 
-    stack = [(root,0)]
-    with open(name,"w") as file:
+    stack = [(root, 0)]
+    with open(name, "w") as file:
         while stack:
-            node,depth = stack.pop(0)
+            node, depth = stack.pop(0)
             indent = ""
             for var in range(depth):
                 indent += "\t"
@@ -763,7 +774,7 @@ def fileTreeReport(root,max=-1,noExtinct=False):
             if max == -1 or depth < max:
                 temp = []
                 for var in clade.children:
-                    temp.append((var,depth+1))
+                    temp.append((var, depth + 1))
                 stack[0:0] = temp
 
 
@@ -774,16 +785,17 @@ def importTree():
         fileTuple = pickle.load(file)
         loadData(fileTuple)
 
-#DO NOT DELETE THIS CODE
+
+# DO NOT DELETE THIS CODE
 if __name__ == "__main__":
     importTree()
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Pseudoxenodontinae",True)
-    #printTaxonTree("Seriema")
-    #removeCommonName("Sibon")
-    #registerCommonName("Ahaetulla","Asian vine snake")
+    searchCommonNames("Madtsoiidae",True)
+    #printTaxonTree("True viper")
+    #removeCommonName("Cerberus")
+    #registerCommonName("Viperidae","Viper")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
