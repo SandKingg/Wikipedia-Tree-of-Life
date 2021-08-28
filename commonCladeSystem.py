@@ -159,14 +159,11 @@ def getTaxonData(pageName, data):
 
     page = parse(pageName)
     temps = page.filter_templates()
-    temp = ""
     for t in temps:
         if t.has(data):
-            temp = t
-            break
-    param = temp.get(data)
-    paramData = param.split("=")[1]
-    return paramData
+            param = t.get(data)
+            paramData = param.split("=")[1]
+            return paramData
 
 
 # Returns the value of the 'extinct' parameter for a specified page
@@ -199,7 +196,8 @@ def cleanPageName(pageName):
     pageName = pageName.replace("/\"", "")
     pageName = pageName.replace("Incertae sedis/", "")
     pageName = pageName.replace("_", " ")
-    pageName = re.sub("<!--.*-->", "", pageName)
+    pageName = re.sub("<.*>", "", pageName) #Removes HTML comments as well as HTML tags
+    pageName = re.sub("<.*", "", pageName) #In case splitting splits on an = inside the tags
     pageName = pageName.strip()
     return pageName
 
@@ -219,6 +217,16 @@ def addTemplate(pageName):
     if len(splitTest) == 1:
         pageName = "Template:Taxonomy/" + pageName
     return pageName
+
+
+# Parses a page and follows a redirect if it exists, returning a parsed page
+def parseAndRedirect(pageName):
+    page = parse(pageName)
+    if "#redirect" in page.lower():
+        m = re.search("#redirect\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
+        redirect = m.group(1)
+        page = parse(redirect)
+    return page
 
 
 # Registers a common name for a given taxon
@@ -320,28 +328,82 @@ def checkTaxonomyTemplate(pageName):
     return found
 
 
-# Checks if <pageName> has the speciesbox template on its page
+# Checks if <pageName> has the speciesbox or subspeciesbox templates on its page
+# Returns 1 for species, 2 for subspecies, 0 for non-species
 def checkSpecies(pageName):
     pageName = cleanPageName(pageName)
     try:
-        page = parse(pageName)
+        page = parseAndRedirect(pageName)
         temps = page.filter_templates()
         for t in temps:
             name = cleanPageName(str(t.name))
             if name.lower() == "speciesbox":
-                return True
+                return 1
+            elif name.lower() == "subspeciesbox":
+                return 2
     except KeyError:
         pass
+    return 0
+
+
+# Gets the taxon for a given species and returns it as both genus and species
+def getSpeciesTaxon(species):
+    pageName = cleanPageName(species)
+    page = parseAndRedirect(pageName)
+    temps = page.filter_templates()
+    for t in temps:
+        name = cleanPageName(str(t.name))
+        if name.lower() == "speciesbox": #TODO: Check for speciesboxes with the subgenus parameter
+            if t.has("taxon"):
+                param = t.get("taxon")
+                paramData = cleanPageName(param.split("=")[1])
+                genus = paramData.split()[0]
+                species = paramData.split()[1]
+            else:
+                param1 = t.get("genus")
+                param2 = t.get("species")
+                genus = cleanPageName(param1.split("=")[1])
+                species = cleanPageName(param2.split("=")[1])
+            return genus, species
+        elif name.lower() == "subspeciesbox":
+            #Wikipedia says subspeciesbox requires the taxon in parts
+            param1 = t.get("genus")
+            param2 = t.get("species")
+            param3 = t.get("subspecies")
+            genus = cleanPageName(param1.split("=")[1])
+            species = cleanPageName(param2.split("=")[1])
+            subspecies = cleanPageName(param3.split("=")[1])
+            return genus, species, subspecies
+
+
+# Gets whether a given species/subspecies is extinct or not
+def getSpeciesExtinct(clade):
+    pageName = cleanPageName(clade)
+    page = parseAndRedirect(pageName)
+    temps = page.filter_templates()
+    for t in temps:
+        name = cleanPageName(str(t.name))
+        if "speciesbox" in name.lower():
+            if t.has("extinct"):
+                return True
     return False
 
-
 # Prints out a taxon tree
-def printTaxonTree(pageName):
+def printTaxonTree(pageName,mainRanksOnly=False):
     clades = listTaxonTree(pageName).copy()
     clades.reverse()
+    mainRanks = ["kingdom","phylum","class","order","family","genus","species"]
     for clade in clades:
-        node = treeDict[clade]
-        print(node.rank + " - " + str(node))
+        if clade in treeDict:
+            node = treeDict[clade]
+            if (not mainRanksOnly) or (node.rank in mainRanks) or (clade == pageName):
+                print(node.rank + " - " + clade)
+        elif treeDict[clade.split()[0]].rank == "genus":
+            taxonArray = clade.split()
+            if len(taxonArray) == 2:
+                print("species - " + clade)
+            elif len(taxonArray) == 3:
+                print("subspecies - " + clade)
 
 
 # Returns the list form of a taxon tree
@@ -358,9 +420,20 @@ def listTaxonTree(pageName):
         return listTaxonTree(pageName)
     elif checkCommonName(pageName):
         return treeDict[commonNames[pageName]].cladeList
-    elif checkSpecies(pageName):
-        print(pageName + " is a species.")
-        sys.exit()
+    elif checkSpecies(pageName) == 1:
+        genus,species = getSpeciesTaxon(pageName)
+        addSpecies(genus,species)
+        clade = genus + " " + species
+        if pageName != clade:
+            registerCommonName(clade,pageName)
+        return listTaxonTree(clade)
+    elif checkSpecies(pageName) == 2:
+        genus,species,subspecies = getSpeciesTaxon(pageName)
+        addSpecies(genus,species,subspecies)
+        clade = genus + " " + species + " " + subspecies
+        if pageName != clade:
+            registerCommonName(clade,pageName)
+        return listTaxonTree(clade)
     else:
         print(pageName + " is not a valid taxon or common name.")
         sys.exit()
@@ -375,6 +448,28 @@ def addTaxonTree(pageName):
     result = [pageName] + listTaxonTree(parent)
     treeDict[pageName] = Node(pageName, result, rank, extinct)
     registerChild(pageName)
+
+
+# Specialised function for adding species or subspecies to the tree, as they do not use Template:Taxobox
+def addSpecies(genus,species,subspecies=""):
+    clade = genus + " " + species + " " + subspecies
+    clade = clade.strip()
+    if clade in treeDict:
+        return
+
+    if treeDict[genus].extinct:
+        extinct = True
+    else:
+        extinct = getSpeciesExtinct(clade)
+
+    if subspecies == "":
+        result = [clade] + listTaxonTree(genus)
+        rank = "species"
+    else:
+        result = [clade] + listTaxonTree(genus + " " + species)
+        rank = "subspecies"
+    treeDict[clade] = Node(clade, result, rank, extinct)
+    registerChild(clade)
 
 
 # The main function of my original system, this takes two clade names and finds the deepest clade that is common to both
@@ -597,7 +692,8 @@ def refreshChildren(name, allData=False):
 
 
 # Updates the data of all pages that have been edited since the last check
-def checkUpdates():
+# Now deprecated, but keeping it around just in case
+"""def checkUpdates():
     global lastUpdated
     print("Checking for updates...")
     toUpdate = related(lastUpdated)
@@ -610,7 +706,7 @@ def checkUpdates():
         if len(toUpdate) == 50:
             print("Maximum limit reached for update auto-checking. Running fullUpdate() is suggested.")
         for var in toUpdate:
-            forceUpdate(var)
+            forceUpdate(var)"""
 
 
 # Returns a list of pages linking to Template:Taxonomy/Animalia that have been changed since the last check
@@ -666,17 +762,19 @@ def checkListForUpdates(toCheck):
     req = requests.get(API_URL, headers=headers, params=params)
     res = req.json()["query"]["pages"]
     revisions = []
+    names = []
     output = []
     for id in res:
+        name = id["title"]
+        names.append(name)
         try:
             revisions.append(id["revisions"][0]["timestamp"])
         except KeyError:
-            name = id["title"]
             print(name + " has caused an error. The page likely does not exist.")
             revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
 
-    for var in range(len(toCheck)):
-        name = toCheck[var].split("/")[1]
+    for var in range(len(names)): # Needs to be names because the order isn't guaranteed to be the same as toCheck
+        name = names[var].split("/")[1]
         if treeDict[name].lastUpdated < revisions[var]:
             output.append(name)
     return output
@@ -792,10 +890,10 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Madtsoiidae",True)
-    #printTaxonTree("True viper")
-    #removeCommonName("Cerberus")
-    #registerCommonName("Viperidae","Viper")
+    #searchCommonNames("Herpestidae",True)
+    printTaxonTree("")
+    #removeCommonName("Urva")
+    #registerCommonName("Cervinae","Old World deer")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)

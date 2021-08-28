@@ -11,14 +11,16 @@ import pickle
     outputArea["state"] = "disabled"'''
 
 
-def loadTree(name="Tetrapoda"):
-    if "genus" not in ccs.treeDict[name].rank:
-        text = name + " (" + str(ccs.countGenera(name)) + ")"
-    else:
-        text = name
-    tree.insert(ccs.treeDict[name].parent, 'end', name, text=text)
-    tree.set(name,"rank",ccs.treeDict[name].rank)
-    for var in ccs.treeDict[name].children:
+def loadTree(name="Sauria"):
+    node = ccs.treeDict[name]
+    text = name
+    if hasattr(node, "commonName") and node.commonName != "":
+        text += " [" + node.commonName + "]"
+    if "genus" not in node.rank:
+        text += " (" + str(ccs.countGenera(name)) + ")"
+    tree.insert(node.parent, 'end', name, text=text)
+    tree.set(name,"rank",node.rank)
+    for var in node.children:
         loadTree(var)
 
 with open("tree.txt", "rb") as file:
@@ -34,9 +36,9 @@ window.columnconfigure(0, weight=1)
 tree = ttk.Treeview(window, height=10, columns="rank")
 tree.grid(row=0, column=0, sticky=tk.NSEW)
 
-tree.column("#0", width=800)
+tree.column("#0", width=0, stretch = True, minwidth=80)
 tree.column("rank", width=100)
-tree.heading("#0", text="Tree of Tetrapoda")
+tree.heading("#0", text="Tree of Sauria")
 tree.heading("rank", text="Rank")
 
 scrollHoriz = ttk.Scrollbar(window, orient=tk.HORIZONTAL, command=tree.xview)
@@ -45,7 +47,7 @@ scrollHoriz.grid(row=1,column=0,sticky=tk.EW)
 scrollVert.grid(row=0,column=1,sticky=tk.NS)
 tree.configure(xscrollcommand=scrollHoriz.set, yscrollcommand=scrollVert.set)
 
-tree.insert('', 0, "Stegocephalia", text="Stegocephalia")
+tree.insert('', 0, "Neodiapsida", text="Neodiapsida")
 loadTree()
 
 # DO NOT WRITE CODE AFTER THIS
