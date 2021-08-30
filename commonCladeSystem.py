@@ -794,7 +794,8 @@ def fullUpdate(root="Vertebrata"):
     ary = []
     needsUpdating = []
     for var in treeDict:
-        ary.append("Template:Taxonomy/" + var)
+        if treeDict[var].rank != "species" and treeDict[var].rank != "subspecies":
+            ary.append("Template:Taxonomy/" + var)
 
     length = len(ary)
     iterations = (length // 50) + 1  # +1 to get the ceiling
@@ -890,10 +891,10 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    #searchCommonNames("Herpestidae",True)
-    printTaxonTree("")
-    #removeCommonName("Urva")
-    #registerCommonName("Cervinae","Old World deer")
+    #searchCommonNames("Canidae",True)
+    printTaxonTree("Red panda")
+    #removeCommonName("Canini")
+    #registerCommonName("Mandrillus leucophaeus","Drill")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
