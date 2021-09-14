@@ -90,7 +90,8 @@ aliases = {
     "Keraterpetontidae": "Diplocaulidae",
     "Zatracheidae": "Zatrachydidae",
     "Chirixalus": "Chiromantis",
-    "Plesiosuchia": "Plesiosuchina"
+    "Plesiosuchia": "Plesiosuchina",
+    "Cyclostomi": "Cyclostomata"
 }
 commonNames = {}
 
@@ -196,8 +197,8 @@ def cleanPageName(pageName):
     pageName = pageName.replace("/\"", "")
     pageName = pageName.replace("Incertae sedis/", "")
     pageName = pageName.replace("_", " ")
-    pageName = re.sub("<.*>", "", pageName) #Removes HTML comments as well as HTML tags
-    pageName = re.sub("<.*", "", pageName) #In case splitting splits on an = inside the tags
+    pageName = re.sub("<.*>", "", pageName)  # Removes HTML comments as well as HTML tags
+    pageName = re.sub("<.*", "", pageName)  # In case splitting splits on an = inside the tags
     pageName = pageName.strip()
     return pageName
 
@@ -353,7 +354,7 @@ def getSpeciesTaxon(species):
     temps = page.filter_templates()
     for t in temps:
         name = cleanPageName(str(t.name))
-        if name.lower() == "speciesbox": #TODO: Check for speciesboxes with the subgenus parameter
+        if name.lower() == "speciesbox":  # TODO: Check for speciesboxes with the subgenus parameter
             if t.has("taxon"):
                 param = t.get("taxon")
                 paramData = cleanPageName(param.split("=")[1])
@@ -366,7 +367,7 @@ def getSpeciesTaxon(species):
                 species = cleanPageName(param2.split("=")[1])
             return genus, species
         elif name.lower() == "subspeciesbox":
-            #Wikipedia says subspeciesbox requires the taxon in parts
+            # Wikipedia says subspeciesbox requires the taxon in parts
             param1 = t.get("genus")
             param2 = t.get("species")
             param3 = t.get("subspecies")
@@ -388,11 +389,12 @@ def getSpeciesExtinct(clade):
                 return True
     return False
 
+
 # Prints out a taxon tree
-def printTaxonTree(pageName,mainRanksOnly=False):
+def printTaxonTree(pageName, mainRanksOnly=False):
     clades = listTaxonTree(pageName).copy()
     clades.reverse()
-    mainRanks = ["kingdom","phylum","class","order","family","genus","species"]
+    mainRanks = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
     for clade in clades:
         if clade in treeDict:
             node = treeDict[clade]
@@ -421,18 +423,18 @@ def listTaxonTree(pageName):
     elif checkCommonName(pageName):
         return treeDict[commonNames[pageName]].cladeList
     elif checkSpecies(pageName) == 1:
-        genus,species = getSpeciesTaxon(pageName)
-        addSpecies(genus,species)
+        genus, species = getSpeciesTaxon(pageName)
+        addSpecies(genus, species)
         clade = genus + " " + species
         if pageName != clade:
-            registerCommonName(clade,pageName)
+            registerCommonName(clade, pageName)
         return listTaxonTree(clade)
     elif checkSpecies(pageName) == 2:
-        genus,species,subspecies = getSpeciesTaxon(pageName)
-        addSpecies(genus,species,subspecies)
+        genus, species, subspecies = getSpeciesTaxon(pageName)
+        addSpecies(genus, species, subspecies)
         clade = genus + " " + species + " " + subspecies
         if pageName != clade:
-            registerCommonName(clade,pageName)
+            registerCommonName(clade, pageName)
         return listTaxonTree(clade)
     else:
         print(pageName + " is not a valid taxon or common name.")
@@ -451,7 +453,7 @@ def addTaxonTree(pageName):
 
 
 # Specialised function for adding species or subspecies to the tree, as they do not use Template:Taxobox
-def addSpecies(genus,species,subspecies=""):
+def addSpecies(genus, species, subspecies=""):
     clade = genus + " " + species + " " + subspecies
     clade = clade.strip()
     if clade in treeDict:
@@ -773,7 +775,7 @@ def checkListForUpdates(toCheck):
             print(name + " has caused an error. The page likely does not exist.")
             revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
 
-    for var in range(len(names)): # Needs to be names because the order isn't guaranteed to be the same as toCheck
+    for var in range(len(names)):  # Needs to be names because the order isn't guaranteed to be the same as toCheck
         name = names[var].split("/")[1]
         if treeDict[name].lastUpdated < revisions[var]:
             output.append(name)
@@ -891,10 +893,10 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    #searchCommonNames("Canidae",True)
-    printTaxonTree("Red panda")
-    #removeCommonName("Canini")
-    #registerCommonName("Mandrillus leucophaeus","Drill")
+    searchCommonNames("Ponginae",True)
+    #printTaxonTree("South American native ungulate")
+    #removeCommonName("Panini")
+    #registerCommonName("Paracrocidura","Large-headed shrew")
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
