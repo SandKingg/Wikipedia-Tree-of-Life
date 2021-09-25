@@ -322,7 +322,7 @@ def checkTaxonomyTemplate(pageName):
     try:
         tempPageName = addTemplate(pageName)
         content = parse(tempPageName)
-        if "#redirect" not in content.lower():
+        if "#redirect" not in content.lower() and "category:unnecessary taxonomy templates" not in content.lower():
             found = True
     except KeyError:
         pass
@@ -893,9 +893,9 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Ponginae",True)
-    #printTaxonTree("South American native ungulate")
-    #removeCommonName("Panini")
+    searchCommonNames("Euarchonta",True)
+    #printTaxonTree("Primate")
+    #removeCommonName("Tupaia")
     #registerCommonName("Paracrocidura","Large-headed shrew")
 
     """output = []
