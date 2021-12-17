@@ -91,7 +91,8 @@ aliases = {
     "Zatracheidae": "Zatrachydidae",
     "Chirixalus": "Chiromantis",
     "Plesiosuchia": "Plesiosuchina",
-    "Cyclostomi": "Cyclostomata"
+    "Cyclostomata": "Cyclostomi",
+    "Palaeonisciformes": "Actinopterygii"
 }
 commonNames = {}
 
@@ -893,9 +894,9 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Euarchonta",True)
-    #printTaxonTree("Primate")
-    #removeCommonName("Tupaia")
+    searchCommonNames("Muroidea",True)
+    #printTaxonTree("Climbing mouse")
+    #removeCommonName("Meriones")
     #registerCommonName("Paracrocidura","Large-headed shrew")
 
     """output = []
