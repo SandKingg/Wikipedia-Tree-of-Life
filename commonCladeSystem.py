@@ -150,7 +150,11 @@ def parse(title):
     headers = {"User-Agent": "My-Bot-Name/1.0"}
     req = requests.get(API_URL, headers=headers, params=params)
     res = req.json()
-    revision = res["query"]["pages"][0]["revisions"][0]
+    try:
+        revision = res["query"]["pages"][0]["revisions"][0]
+    except KeyError:
+        print(f"Error while parsing page: {title}")
+        sys.exit(1)
     text = revision["slots"]["main"]["content"]
     return mw.parse(text)
 
@@ -197,6 +201,7 @@ def cleanPageName(pageName):
     pageName = pageName.replace("\r", "")
     pageName = pageName.replace("/\"", "")
     pageName = pageName.replace("Incertae sedis/", "")
+    pageName = pageName.replace("incertae sedis/", "")
     pageName = pageName.replace("_", " ")
     pageName = re.sub("<.*>", "", pageName)  # Removes HTML comments as well as HTML tags
     pageName = re.sub("<.*", "", pageName)  # In case splitting splits on an = inside the tags
@@ -588,6 +593,17 @@ def delNode(node):
         print("Node deleted")
 
 
+# Refreshes the children of a node, then deletes it
+def refreshAndDelete(node):
+    if node not in treeDict:
+        print("Node not found")
+        return
+    else:
+        for var in childrenOf(node)[:]:
+            forceUpdate(var)
+        delNode(node)
+
+
 # Adds the given node to its parent's list of children
 def registerChild(node):
     parent = treeDict[treeDict[node].parent]
@@ -894,9 +910,9 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Muroidea",True)
-    #printTaxonTree("Climbing mouse")
-    #removeCommonName("Meriones")
+    #searchCommonNames("Dipodidae",True)
+    #printTaxonTree("Boreoeutheria")
+    #removeCommonName("Jaculus")
     #registerCommonName("Paracrocidura","Large-headed shrew")
 
     """output = []

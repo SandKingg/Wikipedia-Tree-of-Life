@@ -67,39 +67,6 @@ Animal (Animalia)
 																																																						Muroidea
 																																																						Dipodoidea
 																																																							Dipodidae
-																																																								Dipodinae
-																																																									Dipodini
-																																																										Jaculus
-																																																										Eremodipus
-																																																										Dipus
-																																																										Stylodipus
-																																																									Paradipodini
-																																																										Paradipus
-																																																								Allactaginae
-																																																									Allactaga
-																																																										Scarturus
-																																																										Allactaga (Scarturus)
-																																																										Allactaga (Allactaga)
-																																																										Allactaga (Orientallactaga)
-																																																										Allactaga (Paralactaga)
-																																																									Allactodipus
-																																																									Pygeretmus
-																																																								Sicistinae
-																																																									Sicista
-																																																								Zapodinae
-																																																									Eozapus
-																																																									Napaeozapus
-																																																									Zapus
-																																																								Cardiocraniinae
-																																																									Salpingotulus
-																																																									Cardiocraniini
-																																																										Cardiocranius
-																																																									Salpingotus
-																																																										Salpingotus (Anguistodontus)
-																																																										Salpingotus (Salpingotus)
-																																																										Salpingotus (Prosalpingotus)
-																																																								Euchoreutinae
-																																																									Euchoreutes
 																																																					Hystricomorpha
 																																																						Hystricognathi
 																																																							Phiomorpha
