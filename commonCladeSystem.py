@@ -150,11 +150,7 @@ def parse(title):
     headers = {"User-Agent": "My-Bot-Name/1.0"}
     req = requests.get(API_URL, headers=headers, params=params)
     res = req.json()
-    try:
-        revision = res["query"]["pages"][0]["revisions"][0]
-    except KeyError:
-        print(f"Error while parsing page: {title}")
-        sys.exit(1)
+    revision = res["query"]["pages"][0]["revisions"][0]
     text = revision["slots"]["main"]["content"]
     return mw.parse(text)
 
@@ -271,6 +267,8 @@ def searchCommonNames(taxon, children=False):
             if link != name:
                 ccn = checkCommonName(link)
                 if ccn:
+                    taxon = getTaxonFromCommonName(link)
+                    registerCommonName(taxon, link)
                     print("Common name '" + link + "' added for " + name)
                 else:
                     print("No common name found for " + name)
@@ -281,6 +279,8 @@ def searchCommonNames(taxon, children=False):
                     redirect = m.group(1)
                     ccn = checkCommonName(redirect)
                     if ccn:
+                        taxon = getTaxonFromCommonName(redirect)
+                        registerCommonName(taxon, redirect)
                         print("Common name '" + redirect + "' added for " + name)
                     else:
                         print("No common name found for " + name)
@@ -315,10 +315,44 @@ def checkCommonName(pageName):
             cleanTaxon = cleanPageName(taxon)
             if cleanTaxon not in treeDict:
                 addTaxonTree(cleanTaxon)
-            registerCommonName(cleanTaxon, pageName)
+            else:
+                clade = treeDict[cleanTaxon]
+                if hasattr(clade, "commonName") and clade.commonName != "":
+                    return False
     except KeyError:
         pass
     return found
+
+
+# Gets the taxon name for a given common name
+def getTaxonFromCommonName(commonName):
+    if commonName in treeDict:
+        return False
+    found = False
+    try:
+        page = parse(commonName)
+        if "#redirect" in page.lower():
+            m = re.search("#redirect\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
+            redirect = m.group(1)
+            if redirect in treeDict or checkTaxonomyTemplate(redirect):
+                taxon = redirect
+                found = True
+        else:
+            temps = page.filter_templates()
+            for t in temps:
+                name = cleanPageName(str(t.name))
+                if name.lower() == "automatic taxobox" and t.has("taxon"):
+                    found = True
+                    taxonParam = t.get("taxon")
+                    taxon = taxonParam.split("=")[1]
+                    break
+        if found:
+            cleanTaxon = cleanPageName(taxon)
+            if cleanTaxon not in treeDict:
+                addTaxonTree(cleanTaxon)
+            return cleanTaxon
+    except KeyError:
+        pass
 
 
 # Attempts to parse 'Template:Taxonomy/<pageName>' as a Wikipedia page and returns whether it succeeds or not
@@ -427,6 +461,8 @@ def listTaxonTree(pageName):
         addTaxonTree(pageName)
         return listTaxonTree(pageName)
     elif checkCommonName(pageName):
+        taxon = getTaxonFromCommonName(pageName)
+        registerCommonName(taxon, pageName)
         return treeDict[commonNames[pageName]].cladeList
     elif checkSpecies(pageName) == 1:
         genus, species = getSpeciesTaxon(pageName)
@@ -910,10 +946,11 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    #searchCommonNames("Dipodidae",True)
-    #printTaxonTree("Boreoeutheria")
-    #removeCommonName("Jaculus")
-    #registerCommonName("Paracrocidura","Large-headed shrew")
+    searchCommonNames("Marmota",True)
+    #printTaxonTree("Marmot")
+    #removeCommonName("Marmota")
+    #registerCommonName("Marmota","Marmot")
+    #print(commonNames)
 
     """output = []
     links, cont = backlinks("Template:Taxonomy/Nephrozoa",500,subpageOnly=False)
