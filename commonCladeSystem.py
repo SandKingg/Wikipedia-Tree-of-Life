@@ -733,7 +733,7 @@ def refreshData(name, allData=False):
             node.setExtinct(newExtinct)
 
             node.markUpdated()
-        except AttributeError:
+        except (AttributeError, KeyError):
             print("Error when updating " + name)
 
     node.setCladeList([name] + listTaxonTree(node.parent))
@@ -946,9 +946,9 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Marmota",True)
-    #printTaxonTree("Marmot")
-    #removeCommonName("Marmota")
+    searchCommonNames("Eutheria",True)
+    #printTaxonTree("Giant armadillo")
+    #removeCommonName("Priodontes maximus")
     #registerCommonName("Marmota","Marmot")
     #print(commonNames)
 
