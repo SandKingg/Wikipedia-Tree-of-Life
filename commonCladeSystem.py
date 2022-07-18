@@ -243,11 +243,11 @@ def removeCommonName(taxon):
     node = treeDict[taxon]
     commonName = node.commonName
     if commonName == "":
-        print("No common name exists for " + taxon)
+        print(f"No common name exists for {taxon}")
     else:
         node.removeCommonName()
         commonNames.pop(commonName)
-        print("Removed the common name '" + commonName + "' for " + taxon)
+        print(f"Removed the common name '{commonName}' for {taxon}")
 
 
 # Searches for common names for the genera below a given taxon.
@@ -260,7 +260,7 @@ def searchCommonNames(taxon, children=False):
     for name in list:
         clade = treeDict[name]
         if hasattr(clade, "commonName") and clade.commonName != "":
-            print("Common name '" + clade.commonName + "' already exists for " + name)
+            print(f"Common name '{clade.commonName}' already exists for {name}")
             continue
         try:
             link = cleanPageName(getTaxonData(name, "link"))
@@ -269,9 +269,9 @@ def searchCommonNames(taxon, children=False):
                 if ccn:
                     taxon = getTaxonFromCommonName(link)
                     registerCommonName(taxon, link)
-                    print("Common name '" + link + "' added for " + name)
+                    print(f"Common name '{link}' added for {name}")
                 else:
-                    print("No common name found for " + name)
+                    print(f"No common name found for {name}")
             else:
                 page = parse(link)
                 if "#redirect" in page.lower():
@@ -281,9 +281,9 @@ def searchCommonNames(taxon, children=False):
                     if ccn:
                         taxon = getTaxonFromCommonName(redirect)
                         registerCommonName(taxon, redirect)
-                        print("Common name '" + redirect + "' added for " + name)
+                        print(f"Common name '{redirect}' added for {name}")
                     else:
-                        print("No common name found for " + name)
+                        print(f"No common name found for {name}")
         except KeyError:
             continue
 
@@ -460,10 +460,6 @@ def listTaxonTree(pageName):
     elif checkTaxonomyTemplate(pageName):
         addTaxonTree(pageName)
         return listTaxonTree(pageName)
-    elif checkCommonName(pageName):
-        taxon = getTaxonFromCommonName(pageName)
-        registerCommonName(taxon, pageName)
-        return treeDict[commonNames[pageName]].cladeList
     elif checkSpecies(pageName) == 1:
         genus, species = getSpeciesTaxon(pageName)
         addSpecies(genus, species)
@@ -478,8 +474,12 @@ def listTaxonTree(pageName):
         if pageName != clade:
             registerCommonName(clade, pageName)
         return listTaxonTree(clade)
+    elif checkCommonName(pageName):
+        taxon = getTaxonFromCommonName(pageName)
+        registerCommonName(taxon, pageName)
+        return treeDict[commonNames[pageName]].cladeList
     else:
-        print(pageName + " is not a valid taxon or common name.")
+        print(f"{pageName} is not a valid taxon or common name.")
         sys.exit()
 
 
@@ -545,10 +545,10 @@ def commonClade(page1, page2):
                 list1 = list1[1:]
                 list2 = list2[1:]
             counter += 1
-    print("The deepest common clade between " + page1 + " and " + page2 + " is: " + st)
-    print(page1 + " and " + page2 + " have " + str(counter) + " clades in common")
-    print(page1 + " is " + str(len(list1)) + " clades deeper than " + st)
-    print(page2 + " is " + str(len(list2)) + " clades deeper than " + st)
+    print(f"The deepest common clade between {page1} and {page2} is {st}")
+    print(f"{page1} and {page2} have {str(counter)} clades in common")
+    print(f"{page1} is {str(len(list1))} clades deeper than {st}")
+    print(f"{page2} is {str(len(list2))} clades deeper than {st}")
 
 
 # Returns a list of pages that link to the given page, along with potentially an id for continuing the API request, if there are more pages that need to be listed
@@ -595,18 +595,21 @@ def addAll(page):
                 if cleanVar == page:
                     continue
                 if cleanVar in treeDict and treeDict[cleanVar].skip:
-                    print("Found completed /skip. Skipping item " + str(counter) + ": " + cleanVar)
+                    print(f"Found completed /skip. Skipping item {str(counter)}: {cleanVar}")
                 else:
-                    print("Found incomplete /skip. Now running addAll(" + cleanVar + ").")
+                    print(f"Found incomplete /skip. Now running addAll({cleanVar}).")
                     addAll(cleanVar)
                     treeDict[cleanVar].flagSkip()
-                    print("Added all subpages for item " + str(counter) + ": " + var)
+                    print(f"Added all subpages for item {str(counter)}: {var}")
             else:
                 if var not in treeDict and var not in aliases:
-                    addTaxonTree(var)
-                    print("Added item " + str(counter) + ": " + var)
+                    try:
+                        addTaxonTree(var)
+                        print(f"Added item {str(counter)}: {var}")
+                    except KeyError:
+                        print(f"Error when adding {var}")
                 else:
-                    print("Item " + str(counter) + " already exists: " + var)
+                    print(f"Item {str(counter)} already exists: {var}")
             counter += 1
 
         if cont == -1:
@@ -707,7 +710,7 @@ def forceUpdate(clade):
     else:
         refreshData(pageName, True)
         refreshChildren(pageName)
-    print("Updated " + pageName)
+    print(f"Updated {pageName}")
 
 
 # Refreshes the data of a given node
@@ -734,7 +737,7 @@ def refreshData(name, allData=False):
 
             node.markUpdated()
         except (AttributeError, KeyError):
-            print("Error when updating " + name)
+            print(f"Error when updating {name}")
 
     node.setCladeList([name] + listTaxonTree(node.parent))
 
@@ -825,7 +828,7 @@ def checkListForUpdates(toCheck):
         try:
             revisions.append(id["revisions"][0]["timestamp"])
         except KeyError:
-            print(name + " has caused an error. The page likely does not exist.")
+            print(f"{name} has caused an error. The page likely does not exist.")
             revisions.append(datetime.now().isoformat()[:-7] + "Z")  # A dummy date so the list is the correct size
 
     for var in range(len(names)):  # Needs to be names because the order isn't guaranteed to be the same as toCheck
@@ -856,13 +859,13 @@ def fullUpdate(root="Vertebrata"):
     iterations = (length // 50) + 1  # +1 to get the ceiling
     iterCounter = 1
     while len(ary) > 50:
-        print("Checking set " + str(iterCounter) + " of " + str(iterations))
+        print(f"Checking set {str(iterCounter)} of {str(iterations)}")
         tempAry = []
         for var in range(50):
             tempAry.append(ary.pop(0))
         needsUpdating += checkListForUpdates(tempAry)
         iterCounter += 1
-    print("Checking set " + str(iterations) + " of " + str(iterations))
+    print(f"Checking set {str(iterations)} of {str(iterations)}")
     needsUpdating += checkListForUpdates(ary)
 
     if len(needsUpdating) > 0:
@@ -872,7 +875,7 @@ def fullUpdate(root="Vertebrata"):
             if node != "Life":
                 refreshData(node, True)
                 refreshChildren(node)
-                print("Updated " + node)
+                print(f"Updated {node}")
     else:
         print("Nothing to update.")
 
@@ -946,10 +949,10 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Eutheria",True)
-    #printTaxonTree("Giant armadillo")
-    #removeCommonName("Priodontes maximus")
-    #registerCommonName("Marmota","Marmot")
+    searchCommonNames("Mammaliaformes",True)
+    #printTaxonTree("Ornithorhynchus anatinus")
+    #removeCommonName("Platypus")
+    #registerCommonName("Ornithorhynchus anatinus","Platypus")
     #print(commonNames)
 
     """output = []
