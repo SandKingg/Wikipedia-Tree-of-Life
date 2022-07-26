@@ -949,9 +949,9 @@ if __name__ == "__main__":
     #fullUpdate()
 
     #Put actual commands below here
-    searchCommonNames("Mammaliaformes",True)
-    #printTaxonTree("Ornithorhynchus anatinus")
-    #removeCommonName("Platypus")
+    searchCommonNames("Asterophryinae",True)
+    #printTaxonTree("Water frog")
+    #removeCommonName("Mini")
     #registerCommonName("Ornithorhynchus anatinus","Platypus")
     #print(commonNames)
 
