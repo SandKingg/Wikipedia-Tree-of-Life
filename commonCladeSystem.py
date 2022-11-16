@@ -13,7 +13,8 @@ lastUpdated = "2000-01-01T00:00:00Z"
 API_URL = "https://en.wikipedia.org/w/api.php"
 
 
-# A class to represent each part of the 'tree'. A node is either a genus or a clade. Each node has a name, rank, a parent node, a list of children and a list detailing its taxonomy.
+# A class to represent each part of the 'tree'. A node is either a genus or a clade.
+# Each node has a name, rank, a parent node, a list of children and a list detailing its taxonomy.
 class Node:
     def __init__(self, name, cladeList, rank, extinct):
         self.name = name
@@ -196,9 +197,8 @@ def cleanPageName(pageName):
     pageName = pageName.replace("/Class", "")
     pageName = pageName.replace("\r", "")
     pageName = pageName.replace("/\"", "")
-    pageName = pageName.replace("Incertae sedis/", "")
-    pageName = pageName.replace("incertae sedis/", "")
     pageName = pageName.replace("_", " ")
+    pageName = re.sub("[Ii]ncertae [sc]edis/", "", pageName) # Different spellings of Incertae sedis
     pageName = re.sub("<.*>", "", pageName)  # Removes HTML comments as well as HTML tags
     pageName = re.sub("<.*", "", pageName)  # In case splitting splits on an = inside the tags
     pageName = pageName.strip()
@@ -275,7 +275,7 @@ def searchCommonNames(taxon, children=False):
             else:
                 page = parse(link)
                 if "#redirect" in page.lower():
-                    m = re.search("#redirect\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
+                    m = re.search("#redirect:?\s*\[\[(.*)\]\]", str(page), re.IGNORECASE)
                     redirect = m.group(1)
                     ccn = checkCommonName(redirect)
                     if ccn:
